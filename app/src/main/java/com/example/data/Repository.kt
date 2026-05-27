@@ -1,0 +1,55 @@
+package com.example.data
+
+import kotlinx.coroutines.flow.Flow
+
+class SchoolRepository(private val db: AppDatabase) {
+    val schoolSetting: Flow<SchoolSetting?> = db.schoolSettingDao.getSettingsFlow()
+    val allStudents: Flow<List<Student>> = db.studentDao.getAllStudentsFlow()
+    val allMarks: Flow<List<Mark>> = db.markDao.getAllMarksFlow()
+
+    suspend fun getSchoolSettingDirect(): SchoolSetting {
+        return db.schoolSettingDao.getSettings() ?: SchoolSetting().also {
+            db.schoolSettingDao.insertOrUpdate(it)
+        }
+    }
+
+    suspend fun updateSchoolSetting(setting: SchoolSetting) {
+        db.schoolSettingDao.insertOrUpdate(setting)
+    }
+
+    fun getStudentsByClassAndSection(className: String, sectionName: String): Flow<List<Student>> {
+        return db.studentDao.getStudentsByClassAndSectionFlow(className, sectionName)
+    }
+
+    suspend fun getStudentById(id: Int): Student? = db.studentDao.getStudentById(id)
+
+    suspend fun insertStudent(student: Student): Long = db.studentDao.insert(student)
+
+    suspend fun updateStudent(student: Student) = db.studentDao.update(student)
+
+    suspend fun deleteStudent(student: Student) {
+        db.studentDao.delete(student)
+        db.markDao.deleteMarksForStudent(student.id)
+    }
+
+    suspend fun deleteStudentById(studentId: Int) {
+        db.studentDao.deleteById(studentId)
+        db.markDao.deleteMarksForStudent(studentId)
+    }
+
+    fun getMarksForStudentFlow(studentId: Int): Flow<List<Mark>> {
+        return db.markDao.getMarksForStudentFlow(studentId)
+    }
+
+    suspend fun getMarksForStudent(studentId: Int): List<Mark> {
+        return db.markDao.getMarksForStudent(studentId)
+    }
+
+    suspend fun saveMark(mark: Mark) {
+        db.markDao.insertOrUpdate(mark)
+    }
+
+    suspend fun deleteMark(studentId: Int, subjectName: String) {
+        db.markDao.deleteMark(studentId, subjectName)
+    }
+}

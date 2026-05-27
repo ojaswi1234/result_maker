@@ -1,0 +1,6 @@
+{
+  "name": "School Result Maker",
+  "description": "Create report cards, track class performance, input academic marks, and generate beautiful school results with local data persistence and dynamic customization.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
