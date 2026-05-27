@@ -17,18 +17,32 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.viewmodel.AppViewModel
+import com.example.BuildConfig
+import android.widget.Toast
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.CustomCredential
+import androidx.credentials.exceptions.GetCredentialException
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
     viewModel: AppViewModel,
     onLoginSuccess: () -> Unit
 ) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var authErrorMessage by remember { mutableStateOf<String?>(null) }
+
     var isRegisterTab by remember { mutableStateOf(false) }
     var showAccountSelector by remember { mutableStateOf(false) }
     var selectedName by remember { mutableStateOf("") }
@@ -168,7 +182,55 @@ fun LoginScreen(
 
                     // SIGN IN WITH GOOGLE BUTTON (OFFICIAL MATCH DESIGN)
                     Button(
-                        onClick = { showAccountSelector = true },
+                        onClick = {
+                            val clientId = try {
+                                BuildConfig.GOOGLE_WEB_CLIENT_ID
+                            } catch (e: java.lang.Exception) {
+                                ""
+                            }
+
+                            if (clientId.isEmpty() || clientId == "YOUR_GOOGLE_WEB_CLIENT_ID") {
+                                authErrorMessage = "Google Web Client ID is custom/unconfigured. Directing to developer sandbox for live testing."
+                                showAccountSelector = true
+                            } else {
+                                val credentialManager = androidx.credentials.CredentialManager.create(context)
+                                val googleIdOption = com.google.android.libraries.identity.googleid.GetGoogleIdOption.Builder()
+                                    .setFilterByAuthorizedAccounts(false)
+                                    .setServerClientId(clientId)
+                                    .setAutoSelectEnabled(false)
+                                    .build()
+
+                                val request = androidx.credentials.GetCredentialRequest.Builder()
+                                    .addCredentialOption(googleIdOption)
+                                    .build()
+
+                                coroutineScope.launch {
+                                    try {
+                                        val result = credentialManager.getCredential(
+                                            context = context,
+                                            request = request
+                                        )
+                                        val credential = result.credential
+                                        if (credential is androidx.credentials.CustomCredential && 
+                                            credential.type == com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                                            val googleIdTokenCredential = com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.createFrom(credential.data)
+                                            val email = googleIdTokenCredential.id
+                                            val name = googleIdTokenCredential.displayName ?: email.substringBefore("@")
+                                            viewModel.signInWithGoogle(email, name, onLoginSuccess)
+                                        } else {
+                                            authErrorMessage = "Google login responded with mismatch: ${credential.type}"
+                                            showAccountSelector = true
+                                        }
+                                    } catch (e: androidx.credentials.exceptions.GetCredentialException) {
+                                        authErrorMessage = "Interaction cancelled or unsupported: ${e.message}"
+                                        showAccountSelector = true
+                                    } catch (e: java.lang.Exception) {
+                                        authErrorMessage = "Connection error: ${e.localizedMessage ?: e.toString()}"
+                                        showAccountSelector = true
+                                    }
+                                }
+                            }
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp)
@@ -207,12 +269,44 @@ fun LoginScreen(
         if (showAccountSelector) {
             AlertDialog(
                 onDismissRequest = { showAccountSelector = false },
-                title = { Text(text = "Choose a Google Google Account") },
+                title = { Text(text = "Google Sign-In") },
                 text = {
                     Column(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         modifier = Modifier.padding(vertical = 8.dp)
                     ) {
+                        if (authErrorMessage != null) {
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 8.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text(
+                                        text = "System Notice:",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = authErrorMessage ?: "",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
+                            }
+                        }
+
+                        Text(
+                            text = "Select an account to continue:",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
                         mockAccounts.forEach { (email, name) ->
                             Card(
                                 onClick = {
