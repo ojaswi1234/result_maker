@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.SchoolSetting
 import com.example.viewmodel.AppViewModel
 import com.example.viewmodel.AuthState
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,10 +37,12 @@ fun MainDashboardScreen(
     onNavigateToMarksEntry: () -> Unit,
     onNavigateToResultGenerator: () -> Unit,
     onNavigateToAnalysis: () -> Unit,
+    onNavigateToExamSettings: () -> Unit,
     onLogout: () -> Unit
 ) {
     val schoolSetting by viewModel.schoolSetting.collectAsState()
     val authState by viewModel.authState.collectAsState()
+    val activeRole by viewModel.activeRole.collectAsState()
     var showEditDialog by remember { mutableStateOf(false) }
 
     val userEmail = when (val auth = authState) {
@@ -47,42 +50,237 @@ fun MainDashboardScreen(
         else -> "Guest Account"
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet {
+                Spacer(modifier = Modifier.height(12.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Text(
-                        text = "School Workspace Portal",
+                        text = "Global Academy",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp
+                        fontSize = 18.sp,
+                        color = MaterialTheme.colorScheme.primary
                     )
-                },
-                actions = {
-                    IconButton(
-                        onClick = { viewModel.logout(onLogout) },
-                        modifier = Modifier.testTag("signout_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Logout,
-                            contentDescription = "Sign Out",
-                            tint = MaterialTheme.colorScheme.error
-                        )
+                    Text(
+                        text = "Signed in context:",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                    Text(
+                        text = userEmail,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    
+                    Divider(modifier = Modifier.padding(vertical = 4.dp))
+                    
+                    // ROLE SIMULATOR ROW SELECTORS
+                    Text(
+                        text = "Simulate Role Context:",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                    
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf("Admin", "Teacher", "Principal/Coordinator").forEach { r ->
+                            val isSelected = activeRole == r
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(
+                                        if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else Color.Transparent
+                                    )
+                                    .clickable {
+                                        viewModel.updateActiveRole(r)
+                                    }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                RadioButton(
+                                    selected = isSelected,
+                                    onClick = { viewModel.updateActiveRole(r) },
+                                    colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
+                                )
+                                Text(
+                                    text = if (r == "Principal/Coordinator") "School Coordinator" else r,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                }
+                
+                Divider()
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // DRAWER ITEMS
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Default.School, contentDescription = "") },
+                    label = { Text("Portal Info & Dashboard") },
+                    selected = true,
+                    onClick = { scope.launch { drawerState.close() } },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
                 )
-            )
+
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Default.Settings, contentDescription = "") },
+                    label = { Text("Exam Settings Module") },
+                    selected = false,
+                    onClick = {
+                        scope.launch {
+                            drawerState.close()
+                            onNavigateToExamSettings()
+                        }
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("drawer_exam_setting_button")
+                )
+
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Default.Group, contentDescription = "") },
+                    label = { Text("Students & Classes") },
+                    selected = false,
+                    onClick = {
+                        scope.launch {
+                            drawerState.close()
+                            onNavigateToStudents()
+                        }
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+                )
+
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Default.EditNote, contentDescription = "") },
+                    label = { Text("Academic Marks Entry") },
+                    selected = false,
+                    onClick = {
+                        scope.launch {
+                            drawerState.close()
+                            onNavigateToMarksEntry()
+                        }
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+                )
+
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Default.ReceiptLong, contentDescription = "") },
+                    label = { Text("Report Card Generator") },
+                    selected = false,
+                    onClick = {
+                        scope.launch {
+                            drawerState.close()
+                            onNavigateToResultGenerator()
+                        }
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+                )
+
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Default.Assessment, contentDescription = "") },
+                    label = { Text("Performance Analytics") },
+                    selected = false,
+                    onClick = {
+                        scope.launch {
+                            drawerState.close()
+                            onNavigateToAnalysis()
+                        }
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+                )
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Default.Logout, contentDescription = "", tint = MaterialTheme.colorScheme.error) },
+                    label = { Text("Sign Out Session", color = MaterialTheme.colorScheme.error) },
+                    selected = false,
+                    onClick = {
+                        scope.launch {
+                            drawerState.close()
+                            viewModel.logout(onLogout)
+                        }
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
         }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(MaterialTheme.colorScheme.background)
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = "School Workspace Portal",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(
+                            onClick = { scope.launch { drawerState.open() } },
+                            modifier = Modifier.testTag("drawer_hamburger_button")
+                        ) {
+                            Icon(imageVector = Icons.Default.Menu, contentDescription = "Menu Drawer")
+                        }
+                    },
+                    actions = {
+                        // Display role banner directly
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = when (activeRole) {
+                                "Admin" -> MaterialTheme.colorScheme.primaryContainer
+                                "Teacher" -> MaterialTheme.colorScheme.secondaryContainer
+                                else -> MaterialTheme.colorScheme.tertiaryContainer
+                            },
+                            modifier = Modifier.padding(end = 4.dp)
+                        ) {
+                            Text(
+                                text = if (activeRole == "Principal/Coordinator") "Coordinator" else activeRole,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+
+                        IconButton(
+                            onClick = { viewModel.logout(onLogout) },
+                            modifier = Modifier.testTag("signout_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Logout,
+                                contentDescription = "Sign Out",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
+                )
+            }
+        ) { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
             // HERO CARD: SCHOOL DETAILS (DYNAMIC & EDITABLE LOGO, NAME, SESSION)
             ElevatedCard(
                 modifier = Modifier
@@ -286,6 +484,7 @@ fun MainDashboardScreen(
             )
         }
     }
+}
 }
 
 @Composable

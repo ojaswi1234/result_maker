@@ -24,14 +24,60 @@ data class Student(
 
 @Entity(
     tableName = "marks",
-    primaryKeys = ["studentId", "subjectName"]
+    primaryKeys = ["studentId", "subjectName", "termName", "examType"]
 )
 data class Mark(
     val studentId: Int,
     val subjectName: String,
     val marksObtained: Double,
+    val termName: String = "Term 1",
+    val examType: String = "Term Exam",
     val maxMarks: Double = 100.0
 )
+
+@Entity(tableName = "exam_configs")
+data class ExamConfig(
+    @PrimaryKey val className: String, // e.g. "Grade 10"
+    val isConfigured: Boolean = false,
+    
+    // Step 2: Additional subjects (serialize as: "Subject Name:Max Marks|Subject Name:Max Marks")
+    val additionalSubjectsString: String = "", 
+    
+    // Step 3: PA Settings Term 1
+    val t1PaCount: Int = 1, // 1 to 3
+    val t1PaMaxMarks1: Double = 20.0,
+    val t1PaMaxMarks2: Double = 20.0,
+    val t1PaMaxMarks3: Double = 20.0,
+    val t1CalculationLogic: String = "Average", // "Average", "Best", "Best of Choice"
+    
+    // Step 3: PA Settings Term 2
+    val t2PaCount: Int = 1, // 1 to 3
+    val t2PaMaxMarks1: Double = 20.0,
+    val t2PaMaxMarks2: Double = 20.0,
+    val t2PaMaxMarks3: Double = 20.0,
+    val t2CalculationLogic: String = "Average", // "Average", "Best", "Best of Choice"
+    
+    // Step 4: Printing Preferences
+    val printSchoolWebsite: Boolean = true,
+    val printAffiliationNumber: Boolean = true,
+    val printBoardLogo: Boolean = true,
+    val printHeightWeight: Boolean = true
+)
+
+@Dao
+interface ExamConfigDao {
+    @Query("SELECT * FROM exam_configs ORDER BY className ASC")
+    fun getAllExamConfigsFlow(): Flow<List<ExamConfig>>
+
+    @Query("SELECT * FROM exam_configs WHERE className = :className LIMIT 1")
+    suspend fun getExamConfigForClass(className: String): ExamConfig?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrUpdate(config: ExamConfig)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrUpdateBulk(configs: List<ExamConfig>)
+}
 
 @Dao
 interface SchoolSettingDao {
@@ -91,14 +137,15 @@ interface MarkDao {
 }
 
 @Database(
-    entities = [SchoolSetting::class, Student::class, Mark::class],
-    version = 1,
+    entities = [SchoolSetting::class, Student::class, Mark::class, ExamConfig::class],
+    version = 2, // Incremented version because we changed Mark's primary key and added ExamConfig. destructively fallback keeps it clean.
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract val schoolSettingDao: SchoolSettingDao
     abstract val studentDao: StudentDao
     abstract val markDao: MarkDao
+    abstract val examConfigDao: ExamConfigDao
 
     companion object {
         @Volatile

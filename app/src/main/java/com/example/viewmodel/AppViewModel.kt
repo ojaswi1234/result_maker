@@ -160,6 +160,34 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // Active mock role simulator: "Admin", "Teacher", "Principal/Coordinator"
+    private val _activeRole = MutableStateFlow("Admin")
+    val activeRole: StateFlow<String> = _activeRole.asStateFlow()
+
+    fun updateActiveRole(role: String) {
+        _activeRole.value = role
+    }
+
+    // All exam configurations
+    val allExamConfigs: StateFlow<List<ExamConfig>> = repository.allExamConfigs
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    fun saveExamConfig(config: ExamConfig) {
+        viewModelScope.launch {
+            repository.saveExamConfig(config)
+        }
+    }
+
+    fun saveExamConfigsBulk(configs: List<ExamConfig>) {
+        viewModelScope.launch {
+            repository.saveExamConfigsBulk(configs)
+        }
+    }
+
     // Edit Student
     fun updateStudent(student: Student) {
         viewModelScope.launch {
@@ -174,13 +202,29 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Save student mark
+    // Save student mark (standard overload)
     fun saveMark(studentId: Int, subject: String, marks: Double, maxMarks: Double = 100.0) {
         viewModelScope.launch {
             repository.saveMark(
                 Mark(
                     studentId = studentId,
                     subjectName = subject,
+                    marksObtained = marks,
+                    maxMarks = maxMarks
+                )
+            )
+        }
+    }
+
+    // Overloaded Save student mark supporting term and specific assessment mode
+    fun saveMark(studentId: Int, subject: String, termName: String, examType: String, marks: Double, maxMarks: Double = 100.0) {
+        viewModelScope.launch {
+            repository.saveMark(
+                Mark(
+                    studentId = studentId,
+                    subjectName = subject,
+                    termName = termName,
+                    examType = examType,
                     marksObtained = marks,
                     maxMarks = maxMarks
                 )

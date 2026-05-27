@@ -69,11 +69,20 @@ fun MainAppHost(viewModel: AppViewModel) {
                     onNavigateToMarksEntry = { navController.navigate("marks_entry") },
                     onNavigateToResultGenerator = { navController.navigate("result_generator") },
                     onNavigateToAnalysis = { navController.navigate("analysis") },
+                    onNavigateToExamSettings = { navController.navigate("exam_settings") },
                     onLogout = {
                         navController.navigate("login") {
                             popUpTo("dashboard") { inclusive = true }
                         }
                     }
+                )
+            }
+
+            // School administrator configurations
+            composable("exam_settings") {
+                ExamSettingsScreen(
+                    viewModel = viewModel,
+                    onBack = { navController.popBackStack() }
                 )
             }
 

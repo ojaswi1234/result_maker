@@ -52,4 +52,19 @@ class SchoolRepository(private val db: AppDatabase) {
     suspend fun deleteMark(studentId: Int, subjectName: String) {
         db.markDao.deleteMark(studentId, subjectName)
     }
+
+    // Exam Config operations
+    val allExamConfigs: Flow<List<ExamConfig>> = db.examConfigDao.getAllExamConfigsFlow()
+
+    suspend fun getExamConfigForClass(className: String): ExamConfig? {
+        return db.examConfigDao.getExamConfigForClass(className)
+    }
+
+    suspend fun saveExamConfig(config: ExamConfig) {
+        db.examConfigDao.insertOrUpdate(config)
+    }
+
+    suspend fun saveExamConfigsBulk(configs: List<ExamConfig>) {
+        db.examConfigDao.insertOrUpdateBulk(configs)
+    }
 }
