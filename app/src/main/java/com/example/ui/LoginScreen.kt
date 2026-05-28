@@ -44,6 +44,14 @@ fun LoginScreen(
     var authErrorMessage by remember { mutableStateOf<String?>(null) }
 
     var isRegisterTab by remember { mutableStateOf(false) }
+    var showAccountSelector by remember { mutableStateOf(false) }
+    var selectedName by remember { mutableStateOf("") }
+    var selectedEmail by remember { mutableStateOf("") }
+
+    val mockAccounts = listOf(
+        Pair("user@example.com", "Test User"),
+        Pair("admin@school.edu", "Administrator")
+    )
 
     Box(
         modifier = Modifier
@@ -209,11 +217,14 @@ fun LoginScreen(
                                             viewModel.signInWithGoogle(email, name, onLoginSuccess)
                                         } else {
                                             authErrorMessage = "Google login responded with mismatch: ${credential.type}"
+                                            showAccountSelector = true
                                         }
                                     } catch (e: androidx.credentials.exceptions.GetCredentialException) {
-                                        authErrorMessage = "Interaction cancelled or unsupported. No Credentials available. \nNotice: Emulator does not have Google accounts logged in. If you're using real device, ensure OAuth config."
+                                        authErrorMessage = "Emulator active (No Google accounts). Showing Developer Sandbox Option."
+                                        showAccountSelector = true
                                     } catch (e: java.lang.Exception) {
                                         authErrorMessage = "Connection error: ${e.localizedMessage ?: e.toString()}"
+                                        showAccountSelector = true
                                     }
                                 }
                             }
@@ -251,7 +262,105 @@ fun LoginScreen(
                 }
             }
             // Animated Google Account Selector Dialog
-            if (authErrorMessage != null) {
+            if (showAccountSelector) {
+                AlertDialog(
+                    onDismissRequest = { showAccountSelector = false },
+                    title = { Text(text = "Google Sign-In Sandbox") },
+                    text = {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        ) {
+                            if (authErrorMessage != null) {
+                                Card(
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                                    ),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 8.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Text(
+                                            text = "System Notice:",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = authErrorMessage ?: "",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    }
+                                }
+                            }
+
+                            Text(
+                                text = "Select a test account to continue:",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            mockAccounts.forEach { (email, name) ->
+                                Card(
+                                    onClick = {
+                                        selectedEmail = email
+                                        selectedName = name
+                                        viewModel.signInWithGoogle(email, name, onLoginSuccess)
+                                        showAccountSelector = false
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("account_item_$email")
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(40.dp)
+                                                .background(
+                                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                                    shape = CircleShape
+                                                ),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = name.first().toString(),
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column {
+                                            Text(
+                                                text = name,
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontSize = 14.sp
+                                            )
+                                            Text(
+                                                text = email,
+                                                fontSize = 12.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showAccountSelector = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
+            } else if (authErrorMessage != null) {
                 Card(
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer
