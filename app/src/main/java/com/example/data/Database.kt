@@ -13,7 +13,8 @@ data class SchoolSetting(
     val logoColorHex: String = "#4F46E5", // Violet primary
     val location: String = "New Delhi, India",
     val principalSignature: String = "",
-    val teacherSignature: String = ""
+    val teacherSignature: String = "",
+    val contactNumber: String = "9XXXXXXXXX"
 )
 
 @Entity(tableName = "students")
@@ -186,7 +187,7 @@ interface SectionSubjectDao {
 
 @Database(
     entities = [SchoolSetting::class, Student::class, Mark::class, ExamConfig::class, SectionSubject::class],
-    version = 5, // Incremented version to add teacherSignature to SchoolSetting
+    version = 6, // Incremented version to add contactNumber to SchoolSetting
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

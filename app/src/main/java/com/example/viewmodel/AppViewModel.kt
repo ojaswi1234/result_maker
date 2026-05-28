@@ -157,8 +157,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 logoColorHex = colorHex,
                 location = location,
                 principalSignature = current.principalSignature,
-                teacherSignature = current.teacherSignature
+                teacherSignature = current.teacherSignature,
+                contactNumber = current.contactNumber
             )
+            repository.updateSchoolSetting(updated)
+        }
+    }
+
+    // Update School Contact Number
+    fun updateSchoolContact(contactNumber: String) {
+        executeDbAction("UPDATE_SCHOOL_CONTACT") {
+            val current = repository.getSchoolSettingDirect()
+            val updated = current.copy(contactNumber = contactNumber)
             repository.updateSchoolSetting(updated)
         }
     }

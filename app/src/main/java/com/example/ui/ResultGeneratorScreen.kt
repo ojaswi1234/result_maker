@@ -51,6 +51,7 @@ import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Phone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -368,6 +369,48 @@ fun ResultGeneratorScreen(
                 }
             }
 
+            // SCHOOL CONTACT NUMBER UPDATE CARD
+            Card(
+                modifier = Modifier.fillMaxWidth().testTag("contact_settings_card"),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Phone,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "Result Creator Contact Details",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    OutlinedTextField(
+                        value = schoolSetting.contactNumber,
+                        onValueChange = { newValue ->
+                            viewModel.updateSchoolContact(newValue)
+                        },
+                        label = { Text("Contact Number for Report Card") },
+                        placeholder = { Text("Enter Contact Number") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().testTag("contact_number_input"),
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp)
+                    )
+                }
+            }
+
             // EXCEL LIVE AUTO-BACKUP CARD
             Card(
                 modifier = Modifier.fillMaxWidth().testTag("excel_backup_card"),
@@ -583,7 +626,7 @@ fun ResultGeneratorScreen(
             // REPORT CARD VISUAL ENGINE PREVIEW
             if (selectedStudent != null && selectedClassSection != null) {
                 val student = selectedStudent!!
-                val rankMap = getSectionRanks(classFilteredStudents, allMarks, selectedReportLayout, sectionSubjects)
+                val rankMap = getSectionRanks(classFilteredStudents, allMarks, selectedReportLayout, sectionSubjects, allSectionSubjects)
                 val studentRank = rankMap[student.id] ?: 1
 
                 Card(
@@ -688,10 +731,17 @@ fun ResultGeneratorScreen(
                             }
 
                             items(sectionSubjects) { sub ->
-                                val comp1 = getComponentMarks(student.id, sub, "Term 1", allMarks)
-                                val comp2 = getComponentMarks(student.id, sub, "Term 2", allMarks)
+                                val weightage = allSectionSubjects.find { 
+                                    it.className.equals(student.className, ignoreCase = true) && 
+                                    it.sectionName.equals(student.sectionName, ignoreCase = true) && 
+                                    it.subjectName.equals(sub, ignoreCase = true) 
+                                }?.maxMarks ?: 100.0
+
+                                val comp1 = getComponentMarks(student.id, sub, "Term 1", allMarks, weightage)
+                                val comp2 = getComponentMarks(student.id, sub, "Term 2", allMarks, weightage)
                                 val finalTotal = comp1.total + comp2.total
-                                val finalGrade = computeGrade(finalTotal / 2.0)
+                                val finalPercentage = ((comp1.total + comp2.total) / (2.0 * weightage)) * 100.0
+                                val finalGrade = computeGrade(finalPercentage)
 
                                 Row(
                                     modifier = Modifier
@@ -700,8 +750,8 @@ fun ResultGeneratorScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Text(sub, fontSize = 12.sp, modifier = Modifier.weight(2f))
-                                    Text("${comp1.total.toInt()}/100", fontSize = 12.sp, modifier = Modifier.weight(1.2f), textAlign = TextAlign.End)
-                                    Text("${comp2.total.toInt()}/100", fontSize = 12.sp, modifier = Modifier.weight(1.2f), textAlign = TextAlign.End)
+                                    Text("${comp1.total.toInt()}/${weightage.toInt()}", fontSize = 12.sp, modifier = Modifier.weight(1.2f), textAlign = TextAlign.End)
+                                    Text("${comp2.total.toInt()}/${weightage.toInt()}", fontSize = 12.sp, modifier = Modifier.weight(1.2f), textAlign = TextAlign.End)
                                     Text(finalGrade, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f), textAlign = TextAlign.End)
                                 }
                             }
@@ -740,7 +790,7 @@ fun ResultGeneratorScreen(
                                         Toast.makeText(context, "No students enrolled in this section.", Toast.LENGTH_SHORT).show()
                                         return@Button
                                     }
-                                    printResultPdf(context, schoolSetting, classFilteredStudents, allMarks, selectedReportLayout, sectionSubjects)
+                                    printResultPdf(context, schoolSetting, classFilteredStudents, allMarks, selectedReportLayout, sectionSubjects, allSectionSubjects)
                                 },
                                 modifier = Modifier
                                     .weight(1f)
@@ -769,7 +819,7 @@ fun ResultGeneratorScreen(
                                         Toast.makeText(context, "No transcripts to print.", Toast.LENGTH_SHORT).show()
                                         return@Button
                                     }
-                                    printResultPdf(context, schoolSetting, classFilteredStudents, allMarks, selectedReportLayout, sectionSubjects)
+                                    printResultPdf(context, schoolSetting, classFilteredStudents, allMarks, selectedReportLayout, sectionSubjects, allSectionSubjects)
                                 },
                                 modifier = Modifier
                                     .weight(1f)
@@ -836,7 +886,13 @@ data class ComponentMarks(
     val total: Double get() = pa + nb + se + exam
 }
 
-fun getComponentMarks(studentId: Int, subjectName: String, termName: String, marks: List<Mark>): ComponentMarks {
+fun getComponentMarks(
+    studentId: Int,
+    subjectName: String,
+    termName: String,
+    marks: List<Mark>,
+    subjectMaxMarks: Double = 100.0
+): ComponentMarks {
     val studentMarks = marks.filter { 
         it.studentId == studentId && 
         it.subjectName.equals(subjectName, ignoreCase = true) 
@@ -860,11 +916,17 @@ fun getComponentMarks(studentId: Int, subjectName: String, termName: String, mar
         (it.examType.contains("Final", ignoreCase = true) || it.examType.contains("Exam", ignoreCase = true) || it.examType.contains("HY", ignoreCase = true) || it.examType.contains("Annual", ignoreCase = true) || it.examType.contains("Term Exam", ignoreCase = true)) 
     }
 
+    // Standard weights mapping: PA = 10%, NB = 5%, SE = 5%, EXAM = 80% out of subjectMaxMarks
+    val maxPa = subjectMaxMarks * 0.10
+    val maxNb = subjectMaxMarks * 0.05
+    val maxSe = subjectMaxMarks * 0.05
+    val maxExam = subjectMaxMarks * 0.80
+
     // Scale scores
-    val paVal = paMark?.let { (it.marksObtained / it.maxMarks) * 10.0 }
-    val nbVal = nbMark?.let { (it.marksObtained / it.maxMarks) * 5.0 }
-    val seVal = seMark?.let { (it.marksObtained / it.maxMarks) * 5.0 }
-    val examVal = examMark?.let { (it.marksObtained / it.maxMarks) * 80.0 }
+    val paVal = paMark?.let { (it.marksObtained / it.maxMarks) * maxPa }
+    val nbVal = nbMark?.let { (it.marksObtained / it.maxMarks) * maxNb }
+    val seVal = seMark?.let { (it.marksObtained / it.maxMarks) * maxSe }
+    val examVal = examMark?.let { (it.marksObtained / it.maxMarks) * maxExam }
 
     // If any component is present, return it
     if (paVal != null || nbVal != null || seVal != null || examVal != null) {
@@ -881,10 +943,10 @@ fun getComponentMarks(studentId: Int, subjectName: String, termName: String, mar
     if (termMarkFallback != null) {
         val basePercent = (termMarkFallback.marksObtained / termMarkFallback.maxMarks) * 100.0
         return ComponentMarks(
-            pa = basePercent * 0.1,    // max 10
-            nb = basePercent * 0.05,   // max 5
-            se = basePercent * 0.05,   // max 5
-            exam = basePercent * 0.8   // max 80
+            pa = basePercent * 0.01 * maxPa,
+            nb = basePercent * 0.01 * maxNb,
+            se = basePercent * 0.01 * maxSe,
+            exam = basePercent * 0.01 * maxExam
         )
     }
 
@@ -892,10 +954,10 @@ fun getComponentMarks(studentId: Int, subjectName: String, termName: String, mar
     val baseSeed = (studentId + subjectName.hashCode()).coerceAtLeast(0)
     val basePercent = 65.0 + (baseSeed % 31) // gives score 65% to 95%
     return ComponentMarks(
-        pa = basePercent * 0.1,
-        nb = basePercent * 0.05,
-        se = basePercent * 0.05,
-        exam = basePercent * 0.8
+        pa = basePercent * 0.01 * maxPa,
+        nb = basePercent * 0.01 * maxNb,
+        se = basePercent * 0.01 * maxSe,
+        exam = basePercent * 0.01 * maxExam
     )
 }
 
@@ -937,25 +999,37 @@ fun getRemarks(percentage: Double): String {
 }
 
 // Class-level Rank generator
-fun getSectionRanks(students: List<Student>, allMarks: List<Mark>, reportLayout: String, subjectsList: List<String>): Map<Int, Int> {
+fun getSectionRanks(
+    students: List<Student>,
+    allMarks: List<Mark>,
+    reportLayout: String,
+    subjectsList: List<String>,
+    allSectionSubjects: List<com.example.data.SectionSubject>
+): Map<Int, Int> {
     val percentages = students.associate { student ->
         var totalObtained = 0.0
         var totalMax = 0.0
         
         for (sub in subjectsList) {
+            val weightage = allSectionSubjects.find { 
+                it.className.equals(student.className, ignoreCase = true) && 
+                it.sectionName.equals(student.sectionName, ignoreCase = true) && 
+                it.subjectName.equals(sub, ignoreCase = true) 
+            }?.maxMarks ?: 100.0
+
             if (reportLayout.contains("Term 1")) {
-                val comp = getComponentMarks(student.id, sub, "Term 1", allMarks)
+                val comp = getComponentMarks(student.id, sub, "Term 1", allMarks, weightage)
                 totalObtained += comp.total
-                totalMax += 100.0
+                totalMax += weightage
             } else if (reportLayout.contains("Term 2")) {
-                val comp = getComponentMarks(student.id, sub, "Term 2", allMarks)
+                val comp = getComponentMarks(student.id, sub, "Term 2", allMarks, weightage)
                 totalObtained += comp.total
-                totalMax += 100.0
+                totalMax += weightage
             } else { // Combined
-                val comp1 = getComponentMarks(student.id, sub, "Term 1", allMarks)
-                val comp2 = getComponentMarks(student.id, sub, "Term 2", allMarks)
+                val comp1 = getComponentMarks(student.id, sub, "Term 1", allMarks, weightage)
+                val comp2 = getComponentMarks(student.id, sub, "Term 2", allMarks, weightage)
                 totalObtained += comp1.total + comp2.total
-                totalMax += 200.0
+                totalMax += 2.0 * weightage
             }
         }
         val pct = if (totalMax > 0) (totalObtained / totalMax) * 100.0 else 0.0
@@ -981,11 +1055,12 @@ fun printResultPdf(
     students: List<Student>,
     allMarks: List<Mark>,
     reportLayout: String,
-    subjectsList: List<String>
+    subjectsList: List<String>,
+    allSectionSubjects: List<com.example.data.SectionSubject>
 ) {
     try {
         val pageBlocks = StringBuilder()
-        val ranksMap = getSectionRanks(students, allMarks, reportLayout, subjectsList)
+        val ranksMap = getSectionRanks(students, allMarks, reportLayout, subjectsList, allSectionSubjects)
 
         for (student in students) {
             val parents = getParentNames(student.name)
@@ -996,43 +1071,51 @@ fun printResultPdf(
                 val subjectsRows = StringBuilder()
                 var t1TotalSum = 0.0
                 var t2TotalSum = 0.0
+                var termMaxSum = 0.0
 
                 for (sub in subjectsList) {
-                    val comp1 = getComponentMarks(student.id, sub, "Term 1", allMarks)
-                    val comp2 = getComponentMarks(student.id, sub, "Term 2", allMarks)
+                    val weightage = allSectionSubjects.find { 
+                        it.className.equals(student.className, ignoreCase = true) && 
+                        it.sectionName.equals(student.sectionName, ignoreCase = true) && 
+                        it.subjectName.equals(sub, ignoreCase = true) 
+                    }?.maxMarks ?: 100.0
+                    termMaxSum += weightage
+
+                    val comp1 = getComponentMarks(student.id, sub, "Term 1", allMarks, weightage)
+                    val comp2 = getComponentMarks(student.id, sub, "Term 2", allMarks, weightage)
                     val subjectCombinedTotal = comp1.total + comp2.total
-                    val subjectCombinedGrade = computeGrade(subjectCombinedTotal / 2.0)
+                    val subjectCombinedGrade = computeGrade((subjectCombinedTotal / (2.0 * weightage)) * 100.0)
 
                     t1TotalSum += comp1.total
                     t2TotalSum += comp2.total
 
                     subjectsRows.append("""
                         <tr>
-                            <td style="border: 1px solid #7A7D81; padding: 4px; text-align: left; font-weight: bold; font-size: 11px;">$sub</td>
+                            <td style="border: 1px solid #7A7D81; padding: 4px; text-align: left; font-weight: bold; font-size: 11px;">$sub <span style="font-weight: normal; font-size: 9px; color: #666;">(${weightage.toInt()})</span></td>
                             <td style="border: 1px solid #7A7D81; padding: 4px; font-size: 10.5px;">${Math.round(comp1.pa)}</td>
                             <td style="border: 1px solid #7A7D81; padding: 4px; font-size: 10.5px;">${Math.round(comp1.nb)}</td>
                             <td style="border: 1px solid #7A7D81; padding: 4px; font-size: 10.5px;">${Math.round(comp1.se)}</td>
                             <td style="border: 1px solid #7A7D81; padding: 4px; font-size: 10.5px;">${Math.round(comp1.exam)}</td>
                             <td style="border: 1px solid #7A7D81; padding: 4px; font-weight: bold; background: #FAF9F6; font-size: 11px;">${Math.round(comp1.total)}</td>
-                            <td style="border: 1px solid #7A7D81; padding: 4px; font-weight: bold; font-size: 11px;">${computeGrade(comp1.total)}</td>
+                            <td style="border: 1px solid #7A7D81; padding: 4px; font-weight: bold; font-size: 11px; color: #1E3A8A;">${computeGrade((comp1.total / weightage) * 100.0)}</td>
                             
                             <td style="border: 1px solid #7A7D81; padding: 4px; font-size: 10.5px;">${Math.round(comp2.pa)}</td>
                             <td style="border: 1px solid #7A7D81; padding: 4px; font-size: 10.5px;">${Math.round(comp2.nb)}</td>
                             <td style="border: 1px solid #7A7D81; padding: 4px; font-size: 10.5px;">${Math.round(comp2.se)}</td>
                             <td style="border: 1px solid #7A7D81; padding: 4px; font-size: 10.5px;">${Math.round(comp2.exam)}</td>
                             <td style="border: 1px solid #7A7D81; padding: 4px; font-weight: bold; background: #FAF9F6; font-size: 11px;">${Math.round(comp2.total)}</td>
-                            <td style="border: 1px solid #7A7D81; padding: 4px; font-weight: bold; font-size: 11px;">${computeGrade(comp2.total)}</td>
+                            <td style="border: 1px solid #7A7D81; padding: 4px; font-weight: bold; font-size: 11px; color: #1E3A8A;">${computeGrade((comp2.total / weightage) * 100.0)}</td>
                             
-                            <td style="border: 1px solid #7A7D81; padding: 4px; font-weight: bold; background: #F1F3F5; font-size: 11px;">${Math.round(subjectCombinedTotal)}</td>
+                            <td style="border: 1px solid #7A7D81; padding: 4px; font-weight: bold; background: #F1F3F5; font-size: 11px;">${Math.round(subjectCombinedTotal)} <span style="font-weight: normal; font-size: 9px; color: #666;">/ ${(weightage * 2).toInt()}</span></td>
                             <td style="border: 1px solid #7A7D81; padding: 4px; font-weight: bold; background: #F1F3F5; font-size: 11px; color: #1E3A8A;">$subjectCombinedGrade</td>
                         </tr>
                     """.trimIndent())
                 }
 
-                val t1Pct = (t1TotalSum / (subjectsList.size * 100.0)) * 100.0
-                val t2Pct = (t2TotalSum / (subjectsList.size * 100.0)) * 100.0
+                val t1Pct = if (termMaxSum > 0) (t1TotalSum / termMaxSum) * 100.0 else 0.0
+                val t2Pct = if (termMaxSum > 0) (t2TotalSum / termMaxSum) * 100.0 else 0.0
                 val finalTotalSum = t1TotalSum + t2TotalSum
-                val finalPct = (finalTotalSum / (subjectsList.size * 200.0)) * 100.0
+                val finalPct = if (termMaxSum > 0) (finalTotalSum / (2.0 * termMaxSum)) * 100.0 else 0.0
 
                 val coScholGrade1 = if (t1Pct >= 75.0) "A" else "B"
                 val coScholGrade2 = if (t2Pct >= 75.0) "A" else "B"
@@ -1063,8 +1146,8 @@ fun printResultPdf(
                                     </td>
                                     <td style="text-align: center; vertical-align: middle;">
                                         <h1 style="font-size: 18px; font-weight: bold; margin: 0; text-transform: uppercase; font-family: Arial, sans-serif;">${school.schoolName}</h1>
-                                        <div style="font-size: 10.5px; font-weight: 500; margin: 1px 0;">Your School Address</div>
-                                        <div style="font-size: 10.5px; font-weight: bold; margin: 1px 0;">Contact No. : 9XXXXXXXXX</div>
+                                        <div style="font-size: 10.5px; font-weight: 500; margin: 1px 0;">${school.location}</div>
+                                        <div style="font-size: 10.5px; font-weight: bold; margin: 1px 0;">Contact No. : ${school.contactNumber}</div>
                                         <div style="font-size: 11px; font-weight: bold; margin-top: 2px; text-transform: uppercase;">Academic Session : ${school.session}</div>
                                         <div style="font-size: 13px; font-weight: bold; text-decoration: underline; text-transform: uppercase; margin-top: 2px;">Report Card</div>
                                     </td>
@@ -1073,7 +1156,7 @@ fun printResultPdf(
                                             ${school.logoEmoji}
                                         </div>
                                     </td>
-                                </tr>
+                                  </tr>
                             </table>
 
                             <!-- Profile -->
@@ -1285,9 +1368,17 @@ fun printResultPdf(
                 val finalExamLabel = if (reportLayout.contains("Term 1")) "HY" else "Annual"
                 val subjectsRows = StringBuilder()
                 var totalSum = 0.0
+                var termMaxSum = 0.0
 
                 for (sub in subjectsList) {
-                    val comp = getComponentMarks(student.id, sub, activeTermName, allMarks)
+                    val weightage = allSectionSubjects.find { 
+                        it.className.equals(student.className, ignoreCase = true) && 
+                        it.sectionName.equals(student.sectionName, ignoreCase = true) && 
+                        it.subjectName.equals(sub, ignoreCase = true) 
+                    }?.maxMarks ?: 100.0
+                    termMaxSum += weightage
+
+                    val comp = getComponentMarks(student.id, sub, activeTermName, allMarks, weightage)
                     totalSum += comp.total
 
                     subjectsRows.append("""
@@ -1297,13 +1388,13 @@ fun printResultPdf(
                             <td style="border: 1px solid #7A7D81; padding: 5px; font-size: 11px;">${Math.round(comp.nb)}</td>
                             <td style="border: 1px solid #7A7D81; padding: 5px; font-size: 11px;">${Math.round(comp.se)}</td>
                             <td style="border: 1px solid #7A7D81; padding: 5px; font-size: 11px;">${Math.round(comp.exam)}</td>
-                            <td style="border: 1px solid #7A7D81; padding: 5px; font-weight: bold; background: #FAF9F6; font-size: 11px;">${Math.round(comp.total)}</td>
-                            <td style="border: 1px solid #7A7D81; padding: 5px; font-weight: bold; font-size: 11px; color: #1E3A8A;">${computeGrade(comp.total)}</td>
+                            <td style="border: 1px solid #7A7D81; padding: 5px; font-weight: bold; background: #FAF9F6; font-size: 11px;">${Math.round(comp.total)} <span style="font-weight: normal; font-size: 9px; color: #666;">/ ${weightage.toInt()}</span></td>
+                            <td style="border: 1px solid #7A7D81; padding: 5px; font-weight: bold; font-size: 11px; color: #1E3A8A;">${computeGrade((comp.total / weightage) * 100.0)}</td>
                         </tr>
                     """.trimIndent())
                 }
 
-                val percentage = (totalSum / (subjectsList.size * 100.0)) * 100.0
+                val percentage = if (termMaxSum > 0) (totalSum / termMaxSum) * 100.0 else 0.0
                 val coScholGrade = if (percentage >= 75.0) "A" else "B"
                 val remark = getRemarks(percentage)
                 val attendanceVal = getAttendance(student.name, activeTermName)
@@ -1330,8 +1421,8 @@ fun printResultPdf(
                                     </td>
                                     <td style="text-align: center; vertical-align: middle;">
                                         <h1 style="font-size: 18px; font-weight: bold; margin: 0; text-transform: uppercase; font-family: Arial, sans-serif;">${school.schoolName}</h1>
-                                        <div style="font-size: 10.5px; font-weight: 500; margin: 1px 0;">Your School Address</div>
-                                        <div style="font-size: 10.5px; font-weight: bold; margin: 1px 0;">Contact No. : 9XXXXXXXXX</div>
+                                        <div style="font-size: 10.5px; font-weight: 500; margin: 1px 0;">${school.location}</div>
+                                        <div style="font-size: 10.5px; font-weight: bold; margin: 1px 0;">Contact No. : ${school.contactNumber}</div>
                                         <div style="font-size: 11px; font-weight: bold; margin-top: 2px; text-transform: uppercase;">Academic Session : ${school.session}</div>
                                         <div style="font-size: 13px; font-weight: bold; text-decoration: underline; text-transform: uppercase; margin-top: 2px;">Report Card</div>
                                     </td>
@@ -1340,7 +1431,7 @@ fun printResultPdf(
                                             ${school.logoEmoji}
                                         </div>
                                     </td>
-                                </tr>
+                                  </tr>
                             </table>
 
                             <!-- Details -->
