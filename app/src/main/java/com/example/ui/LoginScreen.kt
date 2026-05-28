@@ -44,15 +44,6 @@ fun LoginScreen(
     var authErrorMessage by remember { mutableStateOf<String?>(null) }
 
     var isRegisterTab by remember { mutableStateOf(false) }
-    var showAccountSelector by remember { mutableStateOf(false) }
-    var selectedName by remember { mutableStateOf("") }
-    var selectedEmail by remember { mutableStateOf("") }
-
-    val mockAccounts = listOf(
-        Pair("ojaswideep2020@gmail.com", "Ojaswi Deep"),
-        Pair("principal@school.edu", "Principal Office"),
-        Pair("admin@globalacademy.org", "System Administrator")
-    )
 
     Box(
         modifier = Modifier
@@ -190,8 +181,7 @@ fun LoginScreen(
                             }
 
                             if (clientId.isEmpty() || clientId == "YOUR_GOOGLE_WEB_CLIENT_ID") {
-                                authErrorMessage = "Google Web Client ID is custom/unconfigured. Directing to developer sandbox for live testing."
-                                showAccountSelector = true
+                                authErrorMessage = "Google Web Client ID missing. Please set GOOGLE_WEB_CLIENT_ID in the Secrets panel."
                             } else {
                                 val credentialManager = androidx.credentials.CredentialManager.create(context)
                                 val googleIdOption = com.google.android.libraries.identity.googleid.GetGoogleIdOption.Builder()
@@ -219,14 +209,11 @@ fun LoginScreen(
                                             viewModel.signInWithGoogle(email, name, onLoginSuccess)
                                         } else {
                                             authErrorMessage = "Google login responded with mismatch: ${credential.type}"
-                                            showAccountSelector = true
                                         }
                                     } catch (e: androidx.credentials.exceptions.GetCredentialException) {
-                                        authErrorMessage = "Interaction cancelled or unsupported: ${e.message}"
-                                        showAccountSelector = true
+                                        authErrorMessage = "Interaction cancelled or unsupported. No Credentials available. \nNotice: Emulator does not have Google accounts logged in. If you're using real device, ensure OAuth config."
                                     } catch (e: java.lang.Exception) {
                                         authErrorMessage = "Connection error: ${e.localizedMessage ?: e.toString()}"
-                                        showAccountSelector = true
                                     }
                                 }
                             }
@@ -263,151 +250,32 @@ fun LoginScreen(
                     }
                 }
             }
-        }
-
-        // Animated Google Account Selector Dialog
-        if (showAccountSelector) {
-            AlertDialog(
-                onDismissRequest = { showAccountSelector = false },
-                title = { Text(text = "Google Sign-In") },
-                text = {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    ) {
-                        if (authErrorMessage != null) {
-                            Card(
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.errorContainer
-                                ),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 8.dp)
-                            ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
-                                    Text(
-                                        text = "System Notice:",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.onErrorContainer,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = authErrorMessage ?: "",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onErrorContainer
-                                    )
-                                }
-                            }
-                        }
-
+            // Animated Google Account Selector Dialog
+            if (authErrorMessage != null) {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
                         Text(
-                            text = "Select an account to continue:",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = "System Notice:",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            fontWeight = FontWeight.Bold
                         )
-
-                        mockAccounts.forEach { (email, name) ->
-                            Card(
-                                onClick = {
-                                    selectedEmail = email
-                                    selectedName = name
-                                    viewModel.signInWithGoogle(email, name, onLoginSuccess)
-                                    showAccountSelector = false
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .testTag("account_item_$email")
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .background(
-                                                color = MaterialTheme.colorScheme.primaryContainer,
-                                                shape = CircleShape
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = name.first().toString(),
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Column {
-                                        Text(
-                                            text = name,
-                                            fontWeight = FontWeight.SemiBold,
-                                            fontSize = 14.sp
-                                        )
-                                        Text(
-                                            text = email,
-                                            fontSize = 12.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                        // Custom option
-                        var customEmail by remember { mutableStateOf("") }
-                        var customName by remember { mutableStateOf("") }
-                        var isAddingCustom by remember { mutableStateOf(false) }
-
-                        if (isAddingCustom) {
-                            OutlinedTextField(
-                                value = customName,
-                                onValueChange = { customName = it },
-                                label = { Text("Your Name") },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            OutlinedTextField(
-                                value = customEmail,
-                                onValueChange = { customEmail = it },
-                                label = { Text("Google Workspace Email") },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Button(
-                                onClick = {
-                                    if (customEmail.isNotEmpty() && customName.isNotEmpty()) {
-                                        viewModel.signInWithGoogle(customEmail, customName, onLoginSuccess)
-                                        showAccountSelector = false
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("Continue")
-                            }
-                        } else {
-                            TextButton(
-                                onClick = { isAddingCustom = true },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("+ Use another Google account")
-                            }
-                        }
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = { showAccountSelector = false }) {
-                        Text("Cancel")
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = authErrorMessage ?: "",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
                     }
                 }
-            )
+            }
         }
     }
 }

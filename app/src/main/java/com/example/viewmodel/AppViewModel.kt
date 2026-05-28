@@ -50,7 +50,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val sharedPrefs = application.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
         val isDemoCleaned = sharedPrefs.getBoolean("is_demo_cleaned_v7", false)
 
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             if (!isDemoCleaned) {
                 // Clear all student, mark, configuration and section subject data
                 database.clearAllTables()
