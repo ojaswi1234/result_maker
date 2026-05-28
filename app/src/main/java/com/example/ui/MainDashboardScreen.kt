@@ -127,18 +127,10 @@ fun MainDashboardScreen(
                 Divider()
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // DRAWER ITEMS
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.School, contentDescription = "") },
-                    label = { Text("Portal Info & Dashboard") },
-                    selected = true,
-                    onClick = { scope.launch { drawerState.close() } },
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
-                )
-
+                // DRAWER ITEMS - ONLY ONE MAIN FUNCTION BUTTON: Exam setting
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Default.Settings, contentDescription = "") },
-                    label = { Text("Exam Settings Module") },
+                    label = { Text("Exam setting") },
                     selected = false,
                     onClick = {
                         scope.launch {
@@ -147,58 +139,6 @@ fun MainDashboardScreen(
                         }
                     },
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("drawer_exam_setting_button")
-                )
-
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.Group, contentDescription = "") },
-                    label = { Text("Students & Classes") },
-                    selected = false,
-                    onClick = {
-                        scope.launch {
-                            drawerState.close()
-                            onNavigateToStudents()
-                        }
-                    },
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
-                )
-
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.EditNote, contentDescription = "") },
-                    label = { Text("Academic Marks Entry") },
-                    selected = false,
-                    onClick = {
-                        scope.launch {
-                            drawerState.close()
-                            onNavigateToMarksEntry()
-                        }
-                    },
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
-                )
-
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.ReceiptLong, contentDescription = "") },
-                    label = { Text("Report Card Generator") },
-                    selected = false,
-                    onClick = {
-                        scope.launch {
-                            drawerState.close()
-                            onNavigateToResultGenerator()
-                        }
-                    },
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
-                )
-
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.Assessment, contentDescription = "") },
-                    label = { Text("Performance Analytics") },
-                    selected = false,
-                    onClick = {
-                        scope.launch {
-                            drawerState.close()
-                            onNavigateToAnalysis()
-                        }
-                    },
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
                 )
 
                 Spacer(modifier = Modifier.weight(1f))

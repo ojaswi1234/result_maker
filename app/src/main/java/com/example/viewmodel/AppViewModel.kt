@@ -62,12 +62,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private suspend fun createStarterData() {
         val starterStudents = listOf(
-            Student(name = "Liam Smith", rollNumber = "S101", className = "Grade 10", sectionName = "A"),
-            Student(name = "Olivia Johnson", rollNumber = "S102", className = "Grade 10", sectionName = "A"),
-            Student(name = "Noah Williams", rollNumber = "S103", className = "Grade 10", sectionName = "A"),
-            Student(name = "Emma Brown", rollNumber = "S104", className = "Grade 10", sectionName = "B"),
-            Student(name = "Sophia Garcia", rollNumber = "S201", className = "Grade 11", sectionName = "A"),
-            Student(name = "James Martinez", rollNumber = "S202", className = "Grade 11", sectionName = "A")
+            Student(name = "Liam Smith", rollNumber = "S101", className = "IV - Demo", sectionName = "A"),
+            Student(name = "Olivia Johnson", rollNumber = "S102", className = "IV - Demo", sectionName = "A"),
+            Student(name = "Noah Williams", rollNumber = "S103", className = "IX - Demo", sectionName = "A"),
+            Student(name = "Emma Brown", rollNumber = "S104", className = "IX - Demo", sectionName = "B"),
+            Student(name = "Sophia Garcia", rollNumber = "S201", className = "XI - Demo", sectionName = "A"),
+            Student(name = "James Martinez", rollNumber = "S202", className = "XI - Demo", sectionName = "A")
         )
 
         val studentIds = mutableListOf<Int>()

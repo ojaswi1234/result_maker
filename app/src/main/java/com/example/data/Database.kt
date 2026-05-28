@@ -61,7 +61,17 @@ data class ExamConfig(
     val printSchoolWebsite: Boolean = true,
     val printAffiliationNumber: Boolean = true,
     val printBoardLogo: Boolean = true,
-    val printHeightWeight: Boolean = true
+    val printHeightWeight: Boolean = true,
+
+    // Image 2 Parameters: Internal assessment components and values
+    val hasMultipleAssessment: Boolean = false,
+    val multipleAssessmentMarks: Double = 5.0,
+    val hasNotebookSubmission: Boolean = true,
+    val notebookSubmissionMarks: Double = 5.0,
+    val hasSubjectEnrichment: Boolean = true,
+    val subjectEnrichmentMarks: Double = 5.0,
+    val hasPaWeightage: Boolean = true,
+    val paWeightageMarks: Double = 10.0
 )
 
 @Dao
