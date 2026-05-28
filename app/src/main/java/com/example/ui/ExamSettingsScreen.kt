@@ -42,17 +42,13 @@ fun ExamSettingsScreen(
     val allStudents by viewModel.allStudents.collectAsState()
     val allExamConfigs by viewModel.allExamConfigs.collectAsState()
 
-    // Fixed default list of demo classes to strictly match screenshots
-    val defaultClasses = listOf("IV - Demo", "IX - Demo", "XI - Demo")
-    
     // Dynamic distinct sorted classes from pupils database
     val databaseClasses = remember(allStudents) {
         allStudents.map { it.className }.distinct()
     }
     
-    // Merge both to maintain screenshot consistency while being fully dynamic
     val classesList = remember(databaseClasses) {
-        (defaultClasses + databaseClasses).distinct().sorted()
+        databaseClasses.sorted()
     }
 
     var selectedClass by remember { mutableStateOf<String?>(null) }
