@@ -42,16 +42,7 @@ fun LoginScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var authErrorMessage by remember { mutableStateOf<String?>(null) }
-
     var isRegisterTab by remember { mutableStateOf(false) }
-    var showAccountSelector by remember { mutableStateOf(false) }
-    var selectedName by remember { mutableStateOf("") }
-    var selectedEmail by remember { mutableStateOf("") }
-
-    val mockAccounts = listOf(
-        Pair("user@example.com", "Test User"),
-        Pair("admin@school.edu", "Administrator")
-    )
 
     Box(
         modifier = Modifier
@@ -217,14 +208,21 @@ fun LoginScreen(
                                             viewModel.signInWithGoogle(email, name, onLoginSuccess)
                                         } else {
                                             authErrorMessage = "Google login responded with mismatch: ${credential.type}"
-                                            showAccountSelector = true
                                         }
                                     } catch (e: androidx.credentials.exceptions.GetCredentialException) {
-                                        authErrorMessage = "Emulator active (No Google accounts). Showing Developer Sandbox Option."
-                                        showAccountSelector = true
+                                        val getCredError = e.message ?: e.javaClass.simpleName
+                                        authErrorMessage = if (getCredError.contains("No credentials available", ignoreCase = true) || e is androidx.credentials.exceptions.NoCredentialException) {
+                                            "Google Sign-In blocked by Play Services.\n" +
+                                            "You MUST create an Android Client ID in Google Cloud Console with:\n" +
+                                            "Package: com.aistudio.resultmaker.bkyvws\n" +
+                                            "SHA-1: 63:C8:02:D9:60:36:4E:44:C4:8E:4E:9E:82:9F:FF:66:21:ED:26:36\n" +
+                                            "Error Details: $getCredError\n\n" +
+                                            "NOTE: The AI Studio Emulator does not have a Google account logged in. Please download the APK to your phone, or add an account."
+                                        } else {
+                                            "Google Sign-In failed: $getCredError\nEnsure your Android app's SHA-1 is registered."
+                                        }
                                     } catch (e: java.lang.Exception) {
                                         authErrorMessage = "Connection error: ${e.localizedMessage ?: e.toString()}"
-                                        showAccountSelector = true
                                     }
                                 }
                             }
@@ -261,106 +259,8 @@ fun LoginScreen(
                     }
                 }
             }
-            // Animated Google Account Selector Dialog
-            if (showAccountSelector) {
-                AlertDialog(
-                    onDismissRequest = { showAccountSelector = false },
-                    title = { Text(text = "Google Sign-In Sandbox") },
-                    text = {
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        ) {
-                            if (authErrorMessage != null) {
-                                Card(
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                                    ),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(bottom = 8.dp)
-                                ) {
-                                    Column(modifier = Modifier.padding(12.dp)) {
-                                        Text(
-                                            text = "System Notice:",
-                                            style = MaterialTheme.typography.titleSmall,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = authErrorMessage ?: "",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                                        )
-                                    }
-                                }
-                            }
-
-                            Text(
-                                text = "Select a test account to continue:",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-
-                            mockAccounts.forEach { (email, name) ->
-                                Card(
-                                    onClick = {
-                                        selectedEmail = email
-                                        selectedName = name
-                                        viewModel.signInWithGoogle(email, name, onLoginSuccess)
-                                        showAccountSelector = false
-                                    },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .testTag("account_item_$email")
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(12.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(40.dp)
-                                                .background(
-                                                    color = MaterialTheme.colorScheme.primaryContainer,
-                                                    shape = CircleShape
-                                                ),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = name.first().toString(),
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                                            )
-                                        }
-                                        Spacer(modifier = Modifier.width(12.dp))
-                                        Column {
-                                            Text(
-                                                text = name,
-                                                fontWeight = FontWeight.SemiBold,
-                                                fontSize = 14.sp
-                                            )
-                                            Text(
-                                                text = email,
-                                                fontSize = 12.sp,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    confirmButton = {
-                        TextButton(onClick = { showAccountSelector = false }) {
-                            Text("Cancel")
-                        }
-                    }
-                )
-            } else if (authErrorMessage != null) {
+            // Show Error Message
+            if (authErrorMessage != null) {
                 Card(
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer
@@ -371,7 +271,7 @@ fun LoginScreen(
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
-                            text = "System Notice:",
+                            text = "Authentication Error:",
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.onErrorContainer,
                             fontWeight = FontWeight.Bold
