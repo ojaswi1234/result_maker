@@ -67,4 +67,31 @@ class SchoolRepository(private val db: AppDatabase) {
     suspend fun saveExamConfigsBulk(configs: List<ExamConfig>) {
         db.examConfigDao.insertOrUpdateBulk(configs)
     }
+
+    // Section Subject operations
+    val allSectionSubjects: Flow<List<SectionSubject>> = db.sectionSubjectDao.getAllSectionSubjectsFlow()
+
+    fun getSubjectsForSectionFlow(className: String, sectionName: String): Flow<List<SectionSubject>> {
+        return db.sectionSubjectDao.getSubjectsForSectionFlow(className, sectionName)
+    }
+
+    suspend fun getSubjectsForSection(className: String, sectionName: String): List<SectionSubject> {
+        return db.sectionSubjectDao.getSubjectsForSection(className, sectionName)
+    }
+
+    suspend fun saveSectionSubject(subject: SectionSubject) {
+        db.sectionSubjectDao.insertOrUpdate(subject)
+    }
+
+    suspend fun saveSectionSubjectsBulk(subjects: List<SectionSubject>) {
+        db.sectionSubjectDao.insertOrUpdateBulk(subjects)
+    }
+
+    suspend fun deleteSectionSubject(subject: SectionSubject) {
+        db.sectionSubjectDao.delete(subject)
+    }
+
+    suspend fun deleteSectionSubjectByKeys(className: String, sectionName: String, subjectName: String) {
+        db.sectionSubjectDao.deleteByKeys(className, sectionName, subjectName)
+    }
 }

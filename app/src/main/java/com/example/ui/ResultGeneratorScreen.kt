@@ -37,6 +37,20 @@ import com.example.data.Student
 import com.example.viewmodel.AppViewModel
 import java.io.File
 import java.io.FileOutputStream
+import android.net.Uri
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.util.Base64
+import java.io.ByteArrayOutputStream
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Share
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,6 +62,55 @@ fun ResultGeneratorScreen(
     val allStudents by viewModel.allStudents.collectAsState()
     val allMarks by viewModel.allMarks.collectAsState()
     val schoolSetting by viewModel.schoolSetting.collectAsState()
+    val allSectionSubjects by viewModel.allSectionSubjects.collectAsState()
+
+    val decodedBitmap = remember(schoolSetting.principalSignature) {
+        if (schoolSetting.principalSignature.isNotEmpty()) {
+            try {
+                val imageBytes = Base64.decode(schoolSetting.principalSignature, Base64.DEFAULT)
+                BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+            } catch (e: Exception) {
+                null
+            }
+        } else {
+            null
+        }
+    }
+
+    val decodedTeacherBitmap = remember(schoolSetting.teacherSignature) {
+        if (schoolSetting.teacherSignature.isNotEmpty()) {
+            try {
+                val imageBytes = Base64.decode(schoolSetting.teacherSignature, Base64.DEFAULT)
+                BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+            } catch (e: Exception) {
+                null
+            }
+        } else {
+            null
+        }
+    }
+
+    val principalSignatureLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            val b64 = uriToBase64(context, uri)
+            if (b64 != null) {
+                viewModel.updatePrincipalSignature(b64)
+            }
+        }
+    }
+
+    val teacherSignatureLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            val b64 = uriToBase64(context, uri)
+            if (b64 != null) {
+                viewModel.updateTeacherSignature(b64)
+            }
+        }
+    }
 
     // Aggregate unique classes
     val classesList = remember(allStudents) {
@@ -88,17 +151,37 @@ fun ResultGeneratorScreen(
     }
 
     // Dynamic clean list of subjects in section (to keep table rows perfectly uniform!)
-    val sectionSubjects = remember(classFilteredStudents, allMarks) {
-        val base = mutableListOf("Arts", "Hindi", "English", "Maths", "Science")
-        val custom = allMarks.filter { m -> classFilteredStudents.any { it.id == m.studentId } }
-            .map { it.subjectName }
-            .distinct()
-        custom.forEach { sub ->
-            if (!base.contains(sub)) {
-                base.add(sub)
+    val sectionSubjects = remember(selectedClassSection, allSectionSubjects, classFilteredStudents, allMarks) {
+        if (selectedClassSection != null) {
+            val cls = selectedClassSection!!.first
+            val sec = selectedClassSection!!.second
+            val customSubs = allSectionSubjects.filter { it.className == cls && it.sectionName == sec }
+            if (customSubs.isNotEmpty()) {
+                customSubs.map { it.subjectName }
+            } else {
+                val base = mutableListOf("Arts", "Hindi", "English", "Maths", "Science")
+                val custom = allMarks.filter { m -> classFilteredStudents.any { it.id == m.studentId } }
+                    .map { it.subjectName }
+                    .distinct()
+                custom.forEach { sub ->
+                    if (!base.contains(sub)) {
+                        base.add(sub)
+                    }
+                }
+                base.toList()
             }
+        } else {
+            val base = mutableListOf("Arts", "Hindi", "English", "Maths", "Science")
+            val custom = allMarks.filter { m -> classFilteredStudents.any { it.id == m.studentId } }
+                .map { it.subjectName }
+                .distinct()
+            custom.forEach { sub ->
+                if (!base.contains(sub)) {
+                    base.add(sub)
+                }
+            }
+            base.toList()
         }
-        base.toList()
     }
 
     Scaffold(
@@ -121,6 +204,239 @@ fun ResultGeneratorScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // SIGNATURE CONFIGURATIONS ROW
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Principal's Signature Card
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (decodedBitmap != null) {
+                                Image(
+                                    bitmap = decodedBitmap.asImageBitmap(),
+                                    contentDescription = "Principal Signature",
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(2.dp),
+                                    contentScale = ContentScale.Fit
+                                )
+                            } else {
+                                Icon(imageVector = Icons.Default.ReceiptLong, contentDescription = null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(24.dp))
+                            }
+                        }
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Principal's Sign",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = if (schoolSetting.principalSignature.isNotEmpty()) "Active" else "Missing",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = if (schoolSetting.principalSignature.isNotEmpty()) Color(0xFF137333) else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Column(
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            IconButton(
+                                onClick = { principalSignatureLauncher.launch("image/*") },
+                                modifier = Modifier.size(32.dp).testTag("upload_principal_sig_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Upload,
+                                    contentDescription = "Upload Principal Signature",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            if (schoolSetting.principalSignature.isNotEmpty()) {
+                                IconButton(
+                                    onClick = { viewModel.updatePrincipalSignature("") },
+                                    modifier = Modifier.size(32.dp).testTag("delete_principal_sig_button")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Remove Principal Signature",
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Class Teacher's Signature Card
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (decodedTeacherBitmap != null) {
+                                Image(
+                                    bitmap = decodedTeacherBitmap.asImageBitmap(),
+                                    contentDescription = "Teacher Signature",
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(2.dp),
+                                    contentScale = ContentScale.Fit
+                                )
+                            } else {
+                                Icon(imageVector = Icons.Default.ReceiptLong, contentDescription = null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(24.dp))
+                            }
+                        }
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Teacher's Sign",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = if (schoolSetting.teacherSignature.isNotEmpty()) "Active" else "Missing",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = if (schoolSetting.teacherSignature.isNotEmpty()) Color(0xFF137333) else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Column(
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            IconButton(
+                                onClick = { teacherSignatureLauncher.launch("image/*") },
+                                modifier = Modifier.size(32.dp).testTag("upload_teacher_sig_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Upload,
+                                    contentDescription = "Upload Teacher Signature",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            if (schoolSetting.teacherSignature.isNotEmpty()) {
+                                IconButton(
+                                    onClick = { viewModel.updateTeacherSignature("") },
+                                    modifier = Modifier.size(32.dp).testTag("delete_teacher_sig_button")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Remove Teacher Signature",
+                                        tint = MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // EXCEL LIVE AUTO-BACKUP CARD
+            Card(
+                modifier = Modifier.fillMaxWidth().testTag("excel_backup_card"),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Backup,
+                        contentDescription = "Live Backup Active",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Excel Auto-Backup System Active",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Text(
+                            text = "Every single data modification and error state is backed up to Excel sheet instantly.",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Button(
+                        onClick = {
+                            val backupFile = java.io.File(context.getExternalFilesDir(null), "Live_App_Data_Backup.csv")
+                            if (backupFile.exists()) {
+                                try {
+                                    val uri = androidx.core.content.FileProvider.getUriForFile(
+                                        context,
+                                        "${context.packageName}.fileprovider",
+                                        backupFile
+                                    )
+                                    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                        type = "text/comma-separated-values"
+                                        putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(android.content.Intent.createChooser(intent, "Share/Export Live Backup"))
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Sharing failed: ${e.message}", Toast.LENGTH_LONG).show()
+                                }
+                            } else {
+                                Toast.makeText(context, "No backup data generated yet. Modify any content to create one.", Toast.LENGTH_LONG).show()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = Modifier.height(36.dp).testTag("export_excel_backup_button")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Share, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Text("Share", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
             // SELECTORS WORKFLOW
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -895,10 +1211,20 @@ fun printResultPdf(
 
                         <!-- Footer scales -->
                         <div>
-                            <div style="display: flex; justify-content: space-between; margin-top: 10px; margin-bottom: 8px; font-size: 11px; font-weight: bold;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 10px; margin-bottom: 8px; font-size: 11px; font-weight: bold;">
                                 <div>Date : <span style="font-weight: 500;">27-05-2026</span></div>
-                                <div style="border-top: 1px solid #aaa; width: 140px; text-align: center; padding-top: 4px;">Class Teacher</div>
-                                <div style="border-top: 1px solid #aaa; width: 140px; text-align: center; padding-top: 4px;">Principal</div>
+                                <div style="width: 140px; text-align: center; display: flex; flex-direction: column; align-items: center;">
+                                    <div style="height: 40px; display: flex; align-items: center; justify-content: center; margin-bottom: 2px;">
+                                        ${if (school.teacherSignature.isNotEmpty()) """<img src="data:image/png;base64,${school.teacherSignature}" style="max-height: 40px; max-width: 130px; object-fit: contain;" />""" else ""}
+                                    </div>
+                                    <div style="border-top: 1px solid #aaa; width: 100%; text-align: center; padding-top: 4px;">Class Teacher</div>
+                                </div>
+                                <div style="width: 140px; text-align: center; display: flex; flex-direction: column; align-items: center;">
+                                    <div style="height: 40px; display: flex; align-items: center; justify-content: center; margin-bottom: 2px;">
+                                        ${if (school.principalSignature.isNotEmpty()) """<img src="data:image/png;base64,${school.principalSignature}" style="max-height: 40px; max-width: 130px; object-fit: contain;" />""" else ""}
+                                    </div>
+                                    <div style="border-top: 1px solid #aaa; width: 100%; text-align: center; padding-top: 4px;">Principal</div>
+                                </div>
                             </div>
 
                             <table style="width: 100%; border-collapse: collapse; font-size: 8px; border-top: 1px solid #7A7D81;">
@@ -1124,10 +1450,20 @@ fun printResultPdf(
 
                         <!-- Footer -->
                         <div>
-                            <div style="display: flex; justify-content: space-between; margin-top: 10px; margin-bottom: 8px; font-size: 11px; font-weight: bold;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 10px; margin-bottom: 8px; font-size: 11px; font-weight: bold;">
                                 <div>Date : <span style="font-weight: 500;">27-05-2026</span></div>
-                                <div style="border-top: 1px solid #aaa; width: 140px; text-align: center; padding-top: 4px;">Class Teacher</div>
-                                <div style="border-top: 1px solid #aaa; width: 140px; text-align: center; padding-top: 4px;">Principal</div>
+                                <div style="width: 140px; text-align: center; display: flex; flex-direction: column; align-items: center;">
+                                    <div style="height: 40px; display: flex; align-items: center; justify-content: center; margin-bottom: 2px;">
+                                        ${if (school.teacherSignature.isNotEmpty()) """<img src="data:image/png;base64,${school.teacherSignature}" style="max-height: 40px; max-width: 130px; object-fit: contain;" />""" else ""}
+                                    </div>
+                                    <div style="border-top: 1px solid #aaa; width: 100%; text-align: center; padding-top: 4px;">Class Teacher</div>
+                                </div>
+                                <div style="width: 140px; text-align: center; display: flex; flex-direction: column; align-items: center;">
+                                    <div style="height: 40px; display: flex; align-items: center; justify-content: center; margin-bottom: 2px;">
+                                        ${if (school.principalSignature.isNotEmpty()) """<img src="data:image/png;base64,${school.principalSignature}" style="max-height: 40px; max-width: 130px; object-fit: contain;" />""" else ""}
+                                    </div>
+                                    <div style="border-top: 1px solid #aaa; width: 100%; text-align: center; padding-top: 4px;">Principal</div>
+                                </div>
                             </div>
 
                             <table style="width: 100%; border-collapse: collapse; font-size: 8px; border-top: 1px solid #7A7D81;">
@@ -1253,5 +1589,114 @@ fun printResultPdf(
     } catch (e: Exception) {
         Toast.makeText(context, "Error compiling printable PDF: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
     }
+}
+
+// URI Downscaling Base64 Encoder
+fun uriToBase64(context: Context, uri: Uri): String? {
+    return try {
+        val inputStream = context.contentResolver.openInputStream(uri)
+        val bitmap = BitmapFactory.decodeStream(inputStream) ?: return null
+        inputStream?.close()
+
+        val maxDim = 300
+        val scale = maxDim.toFloat() / Math.max(bitmap.width, bitmap.height)
+        val scaledBitmap = if (scale < 1.0f) {
+            Bitmap.createScaledBitmap(
+                bitmap,
+                (bitmap.width * scale).toInt(),
+                (bitmap.height * scale).toInt(),
+                true
+            )
+        } else {
+            bitmap
+        }
+
+        val processedBitmap = processSignatureBitmap(scaledBitmap)
+
+        val outputStream = ByteArrayOutputStream()
+        processedBitmap.compress(Bitmap.CompressFormat.PNG, 90, outputStream)
+        val bytes = outputStream.toByteArray()
+        
+        // Clean up temporary bitmaps
+        if (processedBitmap != scaledBitmap) {
+            processedBitmap.recycle()
+        }
+        if (scaledBitmap != bitmap) {
+            scaledBitmap.recycle()
+        }
+        bitmap.recycle()
+
+        Base64.encodeToString(bytes, Base64.DEFAULT)
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
+    }
+}
+
+// Extract signature by identifying and removing light paper background and boosting dark/ink contrast
+fun processSignatureBitmap(src: Bitmap): Bitmap {
+    val width = src.width
+    val height = src.height
+    val dest = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val pixels = IntArray(width * height)
+    src.getPixels(pixels, 0, width, 0, 0, width, height)
+
+    var maxL = 0
+    var minL = 255
+
+    // First pass to compute luminance min and max
+    for (i in pixels.indices) {
+        val color = pixels[i]
+        val r = (color shr 16) and 0xFF
+        val g = (color shr 8) and 0xFF
+        val b = color and 0xFF
+        val l = (r * 0.299f + g * 0.587f + b * 0.114f).toInt()
+        if (l > maxL) maxL = l
+        if (l < minL) minL = l
+    }
+
+    if (maxL <= minL) {
+        maxL = 255
+        minL = 0
+    }
+
+    val range = (maxL - minL).toFloat()
+    // Define transition points: background paper is higher range, signature ink is lower range
+    val fadeStart = minL + (range * 0.35f)
+    val fadeEnd = minL + (range * 0.70f)
+    val fadeRange = fadeEnd - fadeStart
+
+    for (i in pixels.indices) {
+        val color = pixels[i]
+        val r = (color shr 16) and 0xFF
+        val g = (color shr 8) and 0xFF
+        val b = color and 0xFF
+        val l = (r * 0.299f + g * 0.587f + b * 0.114f).toInt()
+
+        if (l >= fadeEnd) {
+            // Paper background - completely transparent (transparent white background matching white report card)
+            pixels[i] = 0x00FFFFFF
+        } else if (l <= fadeStart) {
+            // solid ink - fully opaque, darken dynamically. Ensure factor doesn't make it brighter, only darker for high contrast
+            val factor = (l.toFloat() / fadeEnd).coerceIn(0.1f, 1.0f)
+            val rNew = (r * factor).toInt().coerceIn(0, 255)
+            val gNew = (g * factor).toInt().coerceIn(0, 255)
+            val bNew = (b * factor).toInt().coerceIn(0, 255)
+            pixels[i] = (255 shl 24) or (rNew shl 16) or (gNew shl 8) or bNew
+        } else {
+            // transition edge (anti-aliasing) - smoothly interpolate alpha from 255 to 0
+            val t = if (fadeRange > 0) (l - fadeStart) / fadeRange else 0.5f
+            val alpha = ((1.0f - t) * 255).toInt().coerceIn(0, 255)
+            
+            val factor = (l.toFloat() / fadeEnd).coerceIn(0.1f, 1.0f)
+            val rNew = (r * factor).toInt().coerceIn(0, 255)
+            val gNew = (g * factor).toInt().coerceIn(0, 255)
+            val bNew = (b * factor).toInt().coerceIn(0, 255)
+            pixels[i] = (alpha shl 24) or (rNew shl 16) or (gNew shl 8) or bNew
+        }
+    }
+
+    dest.setPixels(pixels, 0, width, 0, 0, width, height)
+    return dest
 }
 

@@ -322,6 +322,26 @@ fun MainDashboardScreen(
                                     color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
                                 )
                             }
+
+                            if (schoolSetting.location.isNotEmpty()) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Place,
+                                        contentDescription = "Location",
+                                        tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Text(
+                                        text = schoolSetting.location,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Normal,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -417,8 +437,8 @@ fun MainDashboardScreen(
             EditSchoolDetailsDialog(
                 currentSetting = schoolSetting,
                 onDismiss = { showEditDialog = false },
-                onSave = { name, session, emoji, colorHex ->
-                    viewModel.updateSchoolDetails(name, session, emoji, colorHex)
+                onSave = { name, session, loc, emoji, colorHex ->
+                    viewModel.updateSchoolDetails(name, session, loc, emoji, colorHex)
                     showEditDialog = false
                 }
             )
@@ -498,10 +518,11 @@ fun DashboardModuleCard(
 fun EditSchoolDetailsDialog(
     currentSetting: SchoolSetting,
     onDismiss: () -> Unit,
-    onSave: (name: String, session: String, emoji: String, colorHex: String) -> Unit
+    onSave: (name: String, session: String, location: String, emoji: String, colorHex: String) -> Unit
 ) {
     var name by remember { mutableStateOf(currentSetting.schoolName) }
     var session by remember { mutableStateOf(currentSetting.session) }
+    var location by remember { mutableStateOf(currentSetting.location) }
     var selectedEmoji by remember { mutableStateOf(currentSetting.logoEmoji) }
     var selectedColorHex by remember { mutableStateOf(currentSetting.logoColorHex) }
 
@@ -543,6 +564,15 @@ fun EditSchoolDetailsDialog(
                     label = { Text("Academic Session") },
                     placeholder = { Text("e.g. 2025 - 2026") },
                     modifier = Modifier.fillMaxWidth().testTag("edit_school_session_field"),
+                    singleLine = true
+                )
+
+                OutlinedTextField(
+                    value = location,
+                    onValueChange = { location = it },
+                    label = { Text("School Location") },
+                    placeholder = { Text("e.g. New Delhi, India") },
+                    modifier = Modifier.fillMaxWidth().testTag("edit_school_location_field"),
                     singleLine = true
                 )
 
@@ -617,7 +647,7 @@ fun EditSchoolDetailsDialog(
             Button(
                 onClick = {
                     if (name.isNotEmpty() && session.isNotEmpty()) {
-                        onSave(name, session, selectedEmoji, selectedColorHex)
+                        onSave(name, session, location, selectedEmoji, selectedColorHex)
                     }
                 },
                 modifier = Modifier.testTag("save_school_settings_button")

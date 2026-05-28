@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 
 sealed interface AuthState {
     object Unauthenticated : AuthState
@@ -126,23 +127,63 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         onComplete()
     }
 
+    // Helper wrapper to execute database actions, handle live backup & catch errors in the Excel sheet
+    private fun executeDbAction(operationType: String, action: suspend () -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                action()
+                ExcelBackupHelper.performLiveBackup(getApplication(), database, operationType)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                try {
+                    // Record exact error message & operation type in the excel sheet with current time as requested!
+                    ExcelBackupHelper.performLiveBackup(getApplication(), database, operationType, errorMsg = e.message ?: "Unknown database error")
+                } catch (ex: Exception) {
+                    ex.printStackTrace()
+                }
+            }
+        }
+    }
+
     // Update School Settings
-    fun updateSchoolDetails(name: String, session: String, emoji: String, colorHex: String) {
-        viewModelScope.launch {
+    fun updateSchoolDetails(name: String, session: String, location: String, emoji: String, colorHex: String) {
+        executeDbAction("UPDATE_SCHOOL_DETAILS") {
+            val current = repository.getSchoolSettingDirect()
             val updated = SchoolSetting(
                 id = 1,
                 schoolName = name,
                 session = session,
                 logoEmoji = emoji,
-                logoColorHex = colorHex
+                logoColorHex = colorHex,
+                location = location,
+                principalSignature = current.principalSignature,
+                teacherSignature = current.teacherSignature
             )
+            repository.updateSchoolSetting(updated)
+        }
+    }
+
+    // Update Principal Signature
+    fun updatePrincipalSignature(signatureB64: String) {
+        executeDbAction("UPDATE_PRINCIPAL_SIGNATURE") {
+            val current = repository.getSchoolSettingDirect()
+            val updated = current.copy(principalSignature = signatureB64)
+            repository.updateSchoolSetting(updated)
+        }
+    }
+
+    // Update Teacher Signature
+    fun updateTeacherSignature(signatureB64: String) {
+        executeDbAction("UPDATE_TEACHER_SIGNATURE") {
+            val current = repository.getSchoolSettingDirect()
+            val updated = current.copy(teacherSignature = signatureB64)
             repository.updateSchoolSetting(updated)
         }
     }
 
     // Add Student
     fun addStudent(name: String, rollNumber: String, className: String, sectionName: String) {
-        viewModelScope.launch {
+        executeDbAction("ADD_STUDENT") {
             val cleanClass = className.trim()
             val cleanSection = sectionName.trim()
             val cleanName = name.trim()
@@ -177,34 +218,34 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         )
 
     fun saveExamConfig(config: ExamConfig) {
-        viewModelScope.launch {
+        executeDbAction("SAVE_EXAM_CONFIG") {
             repository.saveExamConfig(config)
         }
     }
 
     fun saveExamConfigsBulk(configs: List<ExamConfig>) {
-        viewModelScope.launch {
+        executeDbAction("SAVE_EXAM_CONFIGS_BULK") {
             repository.saveExamConfigsBulk(configs)
         }
     }
 
     // Edit Student
     fun updateStudent(student: Student) {
-        viewModelScope.launch {
+        executeDbAction("UPDATE_STUDENT") {
             repository.updateStudent(student)
         }
     }
 
     // Delete Student
     fun deleteStudent(student: Student) {
-        viewModelScope.launch {
+        executeDbAction("DELETE_STUDENT") {
             repository.deleteStudent(student)
         }
     }
 
     // Save student mark (standard overload)
     fun saveMark(studentId: Int, subject: String, marks: Double, maxMarks: Double = 100.0) {
-        viewModelScope.launch {
+        executeDbAction("SAVE_MARK_SIMPLE") {
             repository.saveMark(
                 Mark(
                     studentId = studentId,
@@ -218,7 +259,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     // Overloaded Save student mark supporting term and specific assessment mode
     fun saveMark(studentId: Int, subject: String, termName: String, examType: String, marks: Double, maxMarks: Double = 100.0) {
-        viewModelScope.launch {
+        executeDbAction("SAVE_MARK_DETAILED") {
             repository.saveMark(
                 Mark(
                     studentId = studentId,
@@ -242,4 +283,46 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         "Geography",
         "Arts"
     )
+
+    // Section Subjects management
+    val allSectionSubjects: StateFlow<List<SectionSubject>> = repository.allSectionSubjects
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    fun initializeDefaultSubjectsForSectionIfNeeded(className: String, sectionName: String) {
+        executeDbAction("INITIALIZE_SECTION_SUBJECTS") {
+            val existing = repository.getSubjectsForSection(className, sectionName)
+            if (existing.isEmpty()) {
+                val defaults = listOf(
+                    SectionSubject(className, sectionName, "Mathematics", 100.0),
+                    SectionSubject(className, sectionName, "Science", 100.0),
+                    SectionSubject(className, sectionName, "English", 100.0),
+                    SectionSubject(className, sectionName, "History", 100.0)
+                )
+                repository.saveSectionSubjectsBulk(defaults)
+            }
+        }
+    }
+
+    fun saveSectionSubject(className: String, sectionName: String, subjectName: String, maxMarks: Double) {
+        executeDbAction("SAVE_SECTION_SUBJECT") {
+            repository.saveSectionSubject(
+                SectionSubject(
+                    className = className.trim(),
+                    sectionName = sectionName.trim(),
+                    subjectName = subjectName.trim(),
+                    maxMarks = maxMarks
+                )
+            )
+        }
+    }
+
+    fun deleteSectionSubject(className: String, sectionName: String, subjectName: String) {
+        executeDbAction("DELETE_SECTION_SUBJECT") {
+            repository.deleteSectionSubjectByKeys(className.trim(), sectionName.trim(), subjectName.trim())
+        }
+    }
 }

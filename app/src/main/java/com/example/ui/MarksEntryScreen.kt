@@ -49,6 +49,7 @@ fun MarksEntryScreen(
     val allStudents by viewModel.allStudents.collectAsState()
     val allMarks by viewModel.allMarks.collectAsState()
     val allExamConfigs by viewModel.allExamConfigs.collectAsState()
+    val allSectionSubjects by viewModel.allSectionSubjects.collectAsState()
     val activeRole by viewModel.activeRole.collectAsState()
 
     // 1. Selector State Values
@@ -110,30 +111,41 @@ fun MarksEntryScreen(
         isGradingUnlocked = false
     }
 
-    // Dynamic Subject dropdown based on selected Class Configuration
-    val subjectsList = remember(selectedClassSection, allExamConfigs) {
-        val baseSubjects = viewModel.availableSubjects.toMutableList()
+    // Dynamic Subject dropdown based on selected Class Configuration & Section-Specific Subjects
+    val subjectsList = remember(selectedClassSection, allSectionSubjects, allExamConfigs) {
         if (selectedClassSection != null) {
-            val className = selectedClassSection!!.split(" - ").first()
-            val config = allExamConfigs.find { it.className == className }
-            if (config != null && config.additionalSubjectsString.isNotEmpty()) {
-                config.additionalSubjectsString.split("|").forEach { row ->
-                    if (row.contains(":")) {
-                        val name = row.split(":").first()
-                        if (name.isNotEmpty() && !baseSubjects.contains(name)) {
-                            baseSubjects.add(name)
+            val parts = selectedClassSection!!.split(" - ")
+            val className = parts.firstOrNull() ?: ""
+            val sectionName = parts.getOrNull(1) ?: ""
+            val customSubjects = allSectionSubjects.filter { it.className == className && it.sectionName == sectionName }
+            if (customSubjects.isNotEmpty()) {
+                customSubjects.map { it.subjectName }
+            } else {
+                val baseSubjects = viewModel.availableSubjects.toMutableList()
+                val config = allExamConfigs.find { it.className == className }
+                if (config != null && config.additionalSubjectsString.isNotEmpty()) {
+                    config.additionalSubjectsString.split("|").forEach { row ->
+                        if (row.contains(":")) {
+                            val name = row.split(":").first()
+                            if (name.isNotEmpty() && !baseSubjects.contains(name)) {
+                                baseSubjects.add(name)
+                            }
                         }
                     }
                 }
+                baseSubjects.toList()
             }
+        } else {
+            viewModel.availableSubjects
         }
-        baseSubjects.toList()
     }
 
     // Determine configured max marks for current selected mode
-    val currentMaxMarks = remember(selectedClassSection, selectedAssessmentType, selectedSubject, allExamConfigs) {
+    val currentMaxMarks = remember(selectedClassSection, selectedAssessmentType, selectedSubject, allSectionSubjects, allExamConfigs) {
         if (selectedClassSection == null) return@remember 100.0
-        val className = selectedClassSection!!.split(" - ").first()
+        val parts = selectedClassSection!!.split(" - ")
+        val className = parts.firstOrNull() ?: ""
+        val sectionName = parts.getOrNull(1) ?: ""
         val config = allExamConfigs.find { it.className == className }
         
         when {
@@ -145,12 +157,20 @@ fun MarksEntryScreen(
                 }
             }
             selectedSubject != null -> {
-                // If subject is part of additional subjects, load configured additional max
-                val addSubRow = config?.additionalSubjectsString?.split("|")?.find { it.startsWith("$selectedSubject:") }
-                if (addSubRow != null) {
-                    addSubRow.split(":").getOrNull(1)?.toDoubleOrNull() ?: 50.0
+                val secSub = allSectionSubjects.find { 
+                    it.className == className && 
+                    it.sectionName == sectionName && 
+                    it.subjectName == selectedSubject 
+                }
+                if (secSub != null) {
+                    secSub.maxMarks
                 } else {
-                    100.0
+                    val addSubRow = config?.additionalSubjectsString?.split("|")?.find { it.startsWith("$selectedSubject:") }
+                    if (addSubRow != null) {
+                        addSubRow.split(":").getOrNull(1)?.toDoubleOrNull() ?: 50.0
+                    } else {
+                        100.0
+                    }
                 }
             }
             else -> 100.0

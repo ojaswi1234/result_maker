@@ -10,7 +10,10 @@ data class SchoolSetting(
     val schoolName: String = "Global Academy",
     val session: String = "2025 - 2026",
     val logoEmoji: String = "🏫",
-    val logoColorHex: String = "#4F46E5" // Violet primary
+    val logoColorHex: String = "#4F46E5", // Violet primary
+    val location: String = "New Delhi, India",
+    val principalSignature: String = "",
+    val teacherSignature: String = ""
 )
 
 @Entity(tableName = "students")
@@ -146,9 +149,44 @@ interface MarkDao {
     suspend fun deleteMarksForStudent(studentId: Int)
 }
 
+@Entity(
+    tableName = "section_subjects",
+    primaryKeys = ["className", "sectionName", "subjectName"]
+)
+data class SectionSubject(
+    val className: String,
+    val sectionName: String,
+    val subjectName: String,
+    val maxMarks: Double = 100.0
+)
+
+@Dao
+interface SectionSubjectDao {
+    @Query("SELECT * FROM section_subjects ORDER BY className, sectionName, subjectName ASC")
+    fun getAllSectionSubjectsFlow(): Flow<List<SectionSubject>>
+
+    @Query("SELECT * FROM section_subjects WHERE className = :className AND sectionName = :section ORDER BY subjectName ASC")
+    fun getSubjectsForSectionFlow(className: String, section: String): Flow<List<SectionSubject>>
+
+    @Query("SELECT * FROM section_subjects WHERE className = :className AND sectionName = :section ORDER BY subjectName ASC")
+    suspend fun getSubjectsForSection(className: String, section: String): List<SectionSubject>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrUpdate(subject: SectionSubject)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrUpdateBulk(subjects: List<SectionSubject>)
+
+    @Delete
+    suspend fun delete(subject: SectionSubject)
+
+    @Query("DELETE FROM section_subjects WHERE className = :className AND sectionName = :section AND subjectName = :subjectName")
+    suspend fun deleteByKeys(className: String, section: String, subjectName: String)
+}
+
 @Database(
-    entities = [SchoolSetting::class, Student::class, Mark::class, ExamConfig::class],
-    version = 2, // Incremented version because we changed Mark's primary key and added ExamConfig. destructively fallback keeps it clean.
+    entities = [SchoolSetting::class, Student::class, Mark::class, ExamConfig::class, SectionSubject::class],
+    version = 5, // Incremented version to add teacherSignature to SchoolSetting
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -156,6 +194,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract val studentDao: StudentDao
     abstract val markDao: MarkDao
     abstract val examConfigDao: ExamConfigDao
+    abstract val sectionSubjectDao: SectionSubjectDao
 
     companion object {
         @Volatile

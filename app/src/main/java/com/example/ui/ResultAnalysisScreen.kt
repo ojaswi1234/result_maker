@@ -12,7 +12,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.ExpandLess
@@ -51,12 +50,47 @@ fun ResultAnalysisScreen(
 
     var districtName by remember { mutableStateOf("Central District") }
 
-    // Analytics calculations
-    val totalStudents = allStudents.size
-    val totalMarksRecorded = allMarks.size
+    // Grouping classes and sections
+    val sections = remember(allStudents) {
+        allStudents.map { Pair(it.className, it.sectionName) }
+            .distinct()
+            .sortedWith(compareBy({ it.first }, { it.second }))
+    }
 
-    val subjectAverages = remember(allMarks) {
-        allMarks.groupBy { it.subjectName }
+    var selectedSection by remember(sections) { mutableStateOf(sections.firstOrNull()) }
+    var searchSectionQuery by remember { mutableStateOf("") }
+    var dropdownExpanded by remember { mutableStateOf(false) }
+
+    // Filtered sections based on search query
+    val filteredSections = remember(sections, searchSectionQuery) {
+        if (searchSectionQuery.isBlank()) {
+            sections
+        } else {
+            sections.filter {
+                it.first.contains(searchSectionQuery, ignoreCase = true) ||
+                it.second.contains(searchSectionQuery, ignoreCase = true)
+            }
+        }
+    }
+
+    // Filter students and marks belonging to the actively selected Class & Section
+    val sectionStudents = remember(allStudents, selectedSection) {
+        selectedSection?.let { sec ->
+            allStudents.filter { it.className == sec.first && it.sectionName == sec.second }
+        } ?: emptyList()
+    }
+
+    val sectionMarks = remember(allMarks, sectionStudents) {
+        val studentIds = sectionStudents.map { it.id }.toSet()
+        allMarks.filter { it.studentId in studentIds }
+    }
+
+    // Analytics calculations strictly for this selected section
+    val totalStudents = sectionStudents.size
+    val totalMarksRecorded = sectionMarks.size
+
+    val subjectAverages = remember(sectionMarks) {
+        sectionMarks.groupBy { it.subjectName }
             .mapValues { (_, marks) ->
                 if (marks.isNotEmpty()) marks.sumOf { it.marksObtained } / marks.size else 0.0
             }
@@ -64,9 +98,9 @@ fun ResultAnalysisScreen(
             .sortedByDescending { it.second }
     }
 
-    val studentAnalysisList = remember(allStudents, allMarks) {
-        allStudents.map { student ->
-            val sMarks = allMarks.filter { it.studentId == student.id }
+    val studentAnalysisList = remember(sectionStudents, sectionMarks) {
+        sectionStudents.map { student ->
+            val sMarks = sectionMarks.filter { it.studentId == student.id }
             val totalObtained = sMarks.sumOf { it.marksObtained }
             val totalMax = sMarks.sumOf { it.maxMarks }
             val percentage = if (totalMax > 0.0) (totalObtained / totalMax) * 100.0 else 0.0
@@ -88,18 +122,18 @@ fun ResultAnalysisScreen(
         }
     }
 
-    // Top Performers List (Ranked by accumulated percentage)
-    val topStudents = remember(allStudents, allMarks) {
-        allStudents.map { student ->
-            val sMarks = allMarks.filter { it.studentId == student.id }
+    // Top Performers List for the selected section (Ranked by average/percentage)
+    val topStudents = remember(sectionStudents, sectionMarks) {
+        sectionStudents.map { student ->
+            val sMarks = sectionMarks.filter { it.studentId == student.id }
             val average = if (sMarks.isNotEmpty()) {
                 sMarks.sumOf { it.marksObtained } / sMarks.size
             } else 0.0
             Triple(student, average, sMarks.size)
         }
-        .filter { it.third > 0 } // Must have marks entered
+        .filter { it.third > 0 } // Must have marks
         .sortedByDescending { it.second }
-        .take(5) // Get top 5 honor students
+        .take(5)
     }
 
     // Expandable categories states
@@ -127,16 +161,17 @@ fun ResultAnalysisScreen(
                     }
                 },
                 actions = {
-                    if (studentAnalysisList.isNotEmpty()) {
+                    if (selectedSection != null && sectionStudents.isNotEmpty()) {
                         IconButton(
                             onClick = {
                                 exportAnalyticsToExcel(
                                     context = context,
-                                    schoolName = schoolSetting.schoolName,
-                                    session = schoolSetting.session,
-                                    analysisList = studentAnalysisList,
+                                    schoolName = schoolSetting?.schoolName ?: "Global Academy",
+                                    session = schoolSetting?.session ?: "2025 - 2026",
                                     districtName = districtName,
-                                    allStudents = allStudents
+                                    sectionStudents = sectionStudents,
+                                    sectionMarks = sectionMarks,
+                                    selectedSection = selectedSection
                                 )
                             },
                             modifier = Modifier.testTag("analysis_share_excel_button")
@@ -158,11 +193,180 @@ fun ResultAnalysisScreen(
         ) {
             item {
                 Text(
-                    text = "School Overview Dashboard",
+                    text = "Section Performance Dashboard",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
+                    fontSize = 18.sp,
                     color = MaterialTheme.colorScheme.primary
                 )
+            }
+
+            // SEARCHABLE DROPDOWN
+            item {
+                ElevatedCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), RoundedCornerShape(14.dp))
+                        .testTag("section_selector_card"),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.School,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Text(
+                                    text = "Select Class & Section",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            if (selectedSection != null) {
+                                Badge(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = Color.White
+                                ) {
+                                    Text(
+                                        text = "ACTIVE",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Display selected section button
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surface)
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
+                                .clickable { dropdownExpanded = !dropdownExpanded }
+                                .padding(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                val displayName = selectedSection?.let { "${it.first} (Section ${it.second})" } ?: "No Sections Found"
+                                Text(
+                                    text = displayName,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Icon(
+                                    imageVector = if (dropdownExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        if (dropdownExpanded) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            OutlinedTextField(
+                                value = searchSectionQuery,
+                                onValueChange = { searchSectionQuery = it },
+                                placeholder = { Text("Type to search class/section...") },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("search_section_input"),
+                                singleLine = true,
+                                shape = RoundedCornerShape(8.dp),
+                                textStyle = MaterialTheme.typography.bodyMedium,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                                )
+                            )
+
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 160.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
+                            ) {
+                                if (filteredSections.isEmpty()) {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize().padding(16.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text("No matching sections found.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                } else {
+                                    LazyColumn(
+                                        modifier = Modifier.fillMaxSize(),
+                                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                                        contentPadding = PaddingValues(4.dp)
+                                    ) {
+                                        items(filteredSections) { sec ->
+                                            val isSelected = sec == selectedSection
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                                                    .clickable {
+                                                        selectedSection = sec
+                                                        dropdownExpanded = false
+                                                        searchSectionQuery = ""
+                                                    }
+                                                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        text = "${sec.first} (Section ${sec.second})",
+                                                        fontSize = 13.sp,
+                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                    if (isSelected) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.CheckCircle,
+                                                            contentDescription = null,
+                                                            tint = MaterialTheme.colorScheme.primary,
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             // SCORECARDS ROW
@@ -173,14 +377,14 @@ fun ResultAnalysisScreen(
                 ) {
                     ScorecardWidget(
                         value = totalStudents.toString(),
-                        label = "Total Roster",
+                        label = "Section Strength",
                         badgeColor = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.weight(1f)
                     )
 
                     ScorecardWidget(
                         value = String.format("%.0f%%", overallSchoolPassPercentage),
-                        label = "Passing Rate",
+                        label = "Section Pass Rate",
                         badgeColor = Color(0xFF0F9D58),
                         modifier = Modifier.weight(1f)
                     )
@@ -225,13 +429,13 @@ fun ResultAnalysisScreen(
                             }
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Administrative Excel Sheet Exporter",
+                                    text = "Marksheet Excel-Book Compiler",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "Generate and download administrative report with section breakdowns",
+                                    text = "Generates class matching marksheet based exactly on the requested template",
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -243,7 +447,7 @@ fun ResultAnalysisScreen(
                             value = districtName,
                             onValueChange = { districtName = it },
                             label = { Text("District / Region Name") },
-                            placeholder = { Text("e.g. West Delhi, Bengaluru Urban") },
+                            placeholder = { Text("e.g. West Delhi, G B NAGAR") },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("district_name_input"),
@@ -251,7 +455,7 @@ fun ResultAnalysisScreen(
                             shape = RoundedCornerShape(8.dp),
                             trailingIcon = {
                                 Text(
-                                    text = "XLSX/CSV Format",
+                                    text = "XLSX/CSV",
                                     fontSize = 9.sp,
                                     color = Color(0xFF107C41),
                                     fontWeight = FontWeight.Bold,
@@ -265,16 +469,21 @@ fun ResultAnalysisScreen(
                         // DOWNLOAD BUTTON WITH EXCEL STYLING
                         Button(
                             onClick = {
-                                if (studentAnalysisList.isEmpty()) {
-                                    Toast.makeText(context, "No student analytics available to export. Input marks first.", Toast.LENGTH_SHORT).show()
+                                if (selectedSection == null) {
+                                    Toast.makeText(context, "Please select Class & Section first.", Toast.LENGTH_SHORT).show()
+                                } else if (sectionStudents.isEmpty()) {
+                                    Toast.makeText(context, "No rostered students found for this section.", Toast.LENGTH_SHORT).show()
+                                } else if (sectionMarks.isEmpty()) {
+                                    Toast.makeText(context, "No grades entered yet for this section.", Toast.LENGTH_SHORT).show()
                                 } else {
                                     exportAnalyticsToExcel(
                                         context = context,
-                                        schoolName = schoolSetting.schoolName,
-                                        session = schoolSetting.session,
-                                        analysisList = studentAnalysisList,
+                                        schoolName = schoolSetting?.schoolName ?: "Global Academy",
+                                        session = schoolSetting?.session ?: "2025 - 2026",
                                         districtName = districtName,
-                                        allStudents = allStudents
+                                        sectionStudents = sectionStudents,
+                                        sectionMarks = sectionMarks,
+                                        selectedSection = selectedSection
                                     )
                                 }
                             },
@@ -283,7 +492,7 @@ fun ResultAnalysisScreen(
                                 .height(46.dp)
                                 .testTag("download_excel_button"),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF107C41), // Beautiful Excel dark green green color accent
+                                containerColor = Color(0xFF107C41),
                                 contentColor = Color.White
                             ),
                             shape = RoundedCornerShape(10.dp)
@@ -304,7 +513,7 @@ fun ResultAnalysisScreen(
                 }
             }
 
-            // SUBJECT PERFORMANCE PERFORMANCE GRAPH CHART (PURE COMPOSE DYNAMIC BARS)
+            // SUBJECT PERFORMANCE GRAPH CHART
             item {
                 ElevatedCard(
                     modifier = Modifier
@@ -321,14 +530,14 @@ fun ResultAnalysisScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
-                            text = "Subject Mean Score Breakdown",
+                            text = "Subject Average Score Breakdown",
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.onSurface
                         )
 
                         if (subjectAverages.isEmpty()) {
-                            Text("No grade marks recorded yet.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("No marks recorded yet for this section.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         } else {
                             subjectAverages.forEach { (subject, average) ->
                                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -339,8 +548,7 @@ fun ResultAnalysisScreen(
                                         Text(text = subject, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                                         Text(text = String.format("%.1f", average), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                     }
-                                    
-                                    // Custom visual bar chart representation
+
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -351,7 +559,7 @@ fun ResultAnalysisScreen(
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxHeight()
-                                                .fillMaxWidth((average / 100.0).toFloat())
+                                                .fillMaxWidth((average / 100.0).coerceIn(0.0, 1.0).toFloat())
                                                 .clip(CircleShape)
                                                 .background(
                                                     Brush.horizontalGradient(
@@ -370,10 +578,10 @@ fun ResultAnalysisScreen(
                 }
             }
 
-            // NEW SECTION: STUDENT MARK PERCENTAGE CATEGORIES
+            // PERFORMANCE GRADE DISTRIBUTION
             item {
                 Text(
-                    text = "Performance Grade Distribution",
+                    text = "Section Grade Distribution",
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
                     color = MaterialTheme.colorScheme.primary,
@@ -387,7 +595,7 @@ fun ResultAnalysisScreen(
                     rangeText = "95% & Above",
                     students = range95andAbove,
                     totalGradedStudents = studentAnalysisList.size,
-                    colorAccent = Color(0xFFD4AF37), // Golden
+                    colorAccent = Color(0xFFD4AF37),
                     categoryIcon = Icons.Default.Star,
                     expanded = showRange95andAbove,
                     onToggleExpand = { showRange95andAbove = !showRange95andAbove }
@@ -400,7 +608,7 @@ fun ResultAnalysisScreen(
                     rangeText = "90 - 95%",
                     students = range90to95,
                     totalGradedStudents = studentAnalysisList.size,
-                    colorAccent = Color(0xFF8B5CF6), // Bright Violet
+                    colorAccent = Color(0xFF8B5CF6),
                     categoryIcon = Icons.Default.WorkspacePremium,
                     expanded = showRange90to95,
                     onToggleExpand = { showRange90to95 = !showRange90to95 }
@@ -426,7 +634,7 @@ fun ResultAnalysisScreen(
                     rangeText = "60 - 74%",
                     students = range60to74,
                     totalGradedStudents = studentAnalysisList.size,
-                    colorAccent = Color(0xFF0EA5E9), // Sky Blue
+                    colorAccent = Color(0xFF0EA5E9),
                     categoryIcon = Icons.Default.School,
                     expanded = showRange60to74,
                     onToggleExpand = { showRange60to74 = !showRange60to74 }
@@ -439,7 +647,7 @@ fun ResultAnalysisScreen(
                     rangeText = "33 - 59%",
                     students = range33to59,
                     totalGradedStudents = studentAnalysisList.size,
-                    colorAccent = Color(0xFF10B981), // Green
+                    colorAccent = Color(0xFF10B981),
                     categoryIcon = Icons.Default.CheckCircle,
                     expanded = showRange33to59,
                     onToggleExpand = { showRange33to59 = !showRange33to59 }
@@ -452,17 +660,17 @@ fun ResultAnalysisScreen(
                     rangeText = "Below 33%",
                     students = below33,
                     totalGradedStudents = studentAnalysisList.size,
-                    colorAccent = Color(0xFFEF4444), // Crimson Red
+                    colorAccent = Color(0xFFEF4444),
                     categoryIcon = Icons.Default.ErrorOutline,
                     expanded = showBelow33,
                     onToggleExpand = { showBelow33 = !showBelow33 }
                 )
             }
 
-            // HONOR ROLL: TOP PERFORMERS
+            // HONOR ROLL (TOP 5)
             item {
                 Text(
-                    text = "Presidential Honor Roll (Top 5 Performers)",
+                    text = "Section Honor Roll (Top 5 Performers)",
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
                     color = MaterialTheme.colorScheme.primary,
@@ -472,7 +680,7 @@ fun ResultAnalysisScreen(
 
             if (topStudents.isEmpty()) {
                 item {
-                    Text("No student rankings available yet. Input standard marks first.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                    Text("No student rankings available yet.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                 }
             } else {
                 items(topStudents) { (student, average, subjectCount) ->
@@ -487,7 +695,7 @@ fun ResultAnalysisScreen(
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
+                              ) {
                                 Icon(
                                     imageVector = Icons.Default.WorkspacePremium,
                                     contentDescription = "Rank Winner",
@@ -541,7 +749,7 @@ fun CategorySectionWidget(
     onToggleExpand: () -> Unit
 ) {
     val pctOfClass = if (totalGradedStudents > 0) (students.size.toDouble() / totalGradedStudents) * 100.0 else 0.0
-    
+
     ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
@@ -562,7 +770,6 @@ fun CategorySectionWidget(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Colored Indicator Badge with Icon
                 Box(
                     modifier = Modifier
                         .size(36.dp)
@@ -577,7 +784,7 @@ fun CategorySectionWidget(
                         modifier = Modifier.size(18.dp)
                     )
                 }
-                
+
                 Column(modifier = Modifier.weight(1.0f)) {
                     Text(
                         text = title,
@@ -591,8 +798,7 @@ fun CategorySectionWidget(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                
-                // Count Pill & class share
+
                 Column(
                     horizontalAlignment = Alignment.End,
                     verticalArrangement = Arrangement.Center
@@ -618,7 +824,7 @@ fun CategorySectionWidget(
                         )
                     }
                 }
-                
+
                 Icon(
                     imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                     contentDescription = if (expanded) "Collapse" else "Expand",
@@ -626,7 +832,7 @@ fun CategorySectionWidget(
                     modifier = Modifier.size(20.dp)
                 )
             }
-            
+
             if (expanded) {
                 if (students.isEmpty()) {
                     Box(
@@ -665,7 +871,6 @@ fun CategorySectionWidget(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    // Visual Roll badge
                                     Box(
                                         modifier = Modifier
                                             .size(28.dp)
@@ -687,13 +892,13 @@ fun CategorySectionWidget(
                                             color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Text(
-                                            text = "Roll: ${sa.student.rollNumber} • Class ${sa.student.className} • Section ${sa.student.sectionName}",
+                                            text = "Roll: ${sa.student.rollNumber} • Class ${sa.student.className} • Sec ${sa.student.sectionName}",
                                             fontSize = 10.sp,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
                                 }
-                                
+
                                 Column(horizontalAlignment = Alignment.End) {
                                     Text(
                                         text = String.format("%.1f%%", sa.percentage),
@@ -764,99 +969,294 @@ fun exportAnalyticsToExcel(
     context: android.content.Context,
     schoolName: String,
     session: String,
-    analysisList: List<StudentAnalysis>,
     districtName: String,
-    allStudents: List<Student>
+    sectionStudents: List<Student>,
+    sectionMarks: List<Mark>,
+    selectedSection: Pair<String, String>?
 ) {
     try {
-        val csvHeader = "Sr. no.,District,Class & Section,Strength(total no. of students registered),appeared/present,absent,passed,failed,pass percentage,Below 33%,33 - 59%,60 - 74%,75 - 89%,90 - 95%,95% & above\n"
-        val csvLines = java.lang.StringBuilder()
-        
-        var index = 1
-        val sortedGroups = allStudents.groupBy { Pair(it.className, it.sectionName) }
-            .toList()
-            .sortedWith(compareBy({ it.first.first }, { it.first.second }))
-
-        sortedGroups.forEach { (classSection, sectionStudents) ->
-            val className = classSection.first
-            val sectionName = classSection.second
-            val appearedStudents = analysisList.filter { 
-                it.student.className == className && it.student.sectionName == sectionName 
-            }
-            
-            val strength = sectionStudents.size
-            val appeared = appearedStudents.size
-            val absent = strength - appeared
-            val passed = appearedStudents.count { it.percentage >= 33.0 }
-            val failed = appeared - passed
-            val passPct = if (appeared > 0) (passed.toDouble() / appeared) * 100.0 else 0.0
-            
-            val below33Count = appearedStudents.count { it.percentage < 33.0 }
-            val r33to59Count = appearedStudents.count { it.percentage >= 33.0 && it.percentage < 60.0 }
-            val r60to74Count = appearedStudents.count { it.percentage >= 60.0 && it.percentage < 75.0 }
-            val r75to89Count = appearedStudents.count { it.percentage >= 75.0 && it.percentage < 90.0 }
-            val r90to95Count = appearedStudents.count { it.percentage >= 90.0 && it.percentage < 95.0 }
-            val r95andAboveCount = appearedStudents.count { it.percentage >= 95.0 }
-            
-            csvLines.append("$index,")
-                .append("\"${districtName.replace("\"", "\"\"")}\",")
-                .append("\"$className - Section $sectionName\",")
-                .append("$strength,")
-                .append("$appeared,")
-                .append("$absent,")
-                .append("$passed,")
-                .append("$failed,")
-                .append(String.format(java.util.Locale.US, "%.2f%%", passPct)).append(",")
-                .append("$below33Count,")
-                .append("$r33to59Count,")
-                .append("$r60to74Count,")
-                .append("$r75to89Count,")
-                .append("$r90to95Count,")
-                .append("$r95andAboveCount\n")
-                
-            index++
+        if (selectedSection == null) {
+            Toast.makeText(context, "Please select a section first.", Toast.LENGTH_SHORT).show()
+            return
         }
-        
-        // Add Overall Summary row
-        val totalStrength = allStudents.size
-        val totalAppeared = analysisList.size
-        val totalAbsent = totalStrength - totalAppeared
-        val totalPassed = analysisList.count { it.percentage >= 33.0 }
-        val totalFailed = totalAppeared - totalPassed
-        val totalPassPct = if (totalAppeared > 0) (totalPassed.toDouble() / totalAppeared) * 100.0 else 0.0
 
-        val totalB33 = analysisList.count { it.percentage < 33.0 }
-        val total33to59 = analysisList.count { it.percentage >= 33.0 && it.percentage < 60.0 }
-        val total60to74 = analysisList.count { it.percentage >= 60.0 && it.percentage < 75.0 }
-        val total75to89 = analysisList.count { it.percentage >= 75.0 && it.percentage < 90.0 }
-        val total90to95 = analysisList.count { it.percentage >= 90.0 && it.percentage < 95.0 }
-        val total95andAbove = analysisList.count { it.percentage >= 95.0 }
+        val className = selectedSection.first
+        val sectionName = selectedSection.second
 
-        csvLines.append("Total,")
-            .append("\"${districtName.replace("\"", "\"\"")}\",")
-            .append("\"All Sections Combined\",")
-            .append("$totalStrength,")
-            .append("$totalAppeared,")
-            .append("$totalAbsent,")
-            .append("$totalPassed,")
-            .append("$totalFailed,")
-            .append(String.format(java.util.Locale.US, "%.2f%%", totalPassPct)).append(",")
-            .append("$totalB33,")
-            .append("$total33to59,")
-            .append("$total60to74,")
-            .append("$total75to89,")
-            .append("$total90to95,")
-            .append("$total95andAbove\n")
+        // Extract list of unique subjects recorded for this section
+        val subjectsList = sectionMarks.map { it.subjectName }
+            .distinct()
+            .sorted()
 
-        val fileContent = "School: $schoolName\nSession: $session\nGenerated On: 2026-05-28\n\n$csvHeader$csvLines"
+        // Match maximum marks dynamically for each subject
+        val subjectMaxMarks = subjectsList.associateWith { name ->
+            sectionMarks.filter { it.subjectName == name }.maxOfOrNull { it.maxMarks } ?: 40.0
+        }
+
+        val sbOutput = java.lang.StringBuilder()
+
+        // Line 1: School Header
+        sbOutput.append("\"${schoolName.uppercase().replace("\"", "\"\"")}\"\n")
+
+        // Line 2: Report Title matching the exact PDF layout
+        val examType = sectionMarks.firstOrNull()?.examType ?: "UT 1"
+        sbOutput.append("\"MARKS STATEMENT $examType CLASS-${className.uppercase()} $sectionName $session\"\n")
+
+        // Line 3: MAXIMUM MARKS row
+        sbOutput.append("MAXIMUM MARKS,,")
+        subjectsList.forEach { col ->
+            val mx = subjectMaxMarks[col] ?: 40.0
+            sbOutput.append(if (mx % 1.0 == 0.0) "${mx.toInt()}," else "$mx,")
+        }
+        sbOutput.append(",,\n") // Empty cells under Total, %age, RANK
+
+        // Line 4: Table Row Header Column Names
+        sbOutput.append("Roll No,NAME OF STUDENTS,")
+        subjectsList.forEach { sub ->
+            sbOutput.append("\"${sub.uppercase().replace("\"", "\"\"")}\",")
+        }
+        sbOutput.append("Total,%age,RANK\n")
+
+        // Sort students by Roll number for organized list layout
+        val sortedStudents = sectionStudents.sortedWith(compareBy({ it.rollNumber }, { it.name }))
+
+        // Compute Roster totals & percentages
+        val studentTotalObtained = sortedStudents.associateWith { s ->
+            val sMarks = sectionMarks.filter { it.studentId == s.id }
+            sMarks.sumOf { it.marksObtained }
+        }
+
+        val studentPercentages = sortedStudents.associateWith { s ->
+            val sMarks = sectionMarks.filter { it.studentId == s.id }
+            val totalObtained = sMarks.sumOf { it.marksObtained }
+            val totalMax = sMarks.sumOf { it.maxMarks }
+            if (totalMax > 0.0) (totalObtained / totalMax) * 100.0 else 0.0
+        }
+
+        val studentRanks = sortedStudents.associateWith { s ->
+            val curPct = studentPercentages[s] ?: 0.0
+            val higher = studentPercentages.values.count { it > curPct }
+            higher + 1
+        }
+
+        // Student Data Rows
+        sortedStudents.forEach { s ->
+            sbOutput.append("\"${s.rollNumber.replace("\"", "\"\"")}\",")
+            sbOutput.append("\"${s.name.replace("\"", "\"\"")}\",")
+
+            val sMarks = sectionMarks.filter { it.studentId == s.id }
+
+            // Dynamic subject marks columns
+            subjectsList.forEach { sub ->
+                val record = sMarks.find { it.subjectName == sub }
+                if (record != null) {
+                    val score = record.marksObtained
+                    sbOutput.append(if (score % 1.0 == 0.0) "${score.toInt()}," else "$score,")
+                } else {
+                    sbOutput.append(",") // blank cell represents absent/unentered
+                }
+            }
+
+            // Total Column
+            val tot = studentTotalObtained[s] ?: 0.0
+            sbOutput.append(if (tot % 1.0 == 0.0) "${tot.toInt()}," else "$tot,")
+
+            // Percentage % Cell
+            val pct = studentPercentages[s] ?: 0.0
+            sbOutput.append(String.format(java.util.Locale.US, "%.2f,", pct))
+
+            // Rank Cell
+            val rk = studentRanks[s] ?: 1
+            sbOutput.append("$rk\n")
+        }
+
+        // Add visual layout separation
+        sbOutput.append("\n\n")
+
+        // Summary Subjects Row matching PDF
+        sbOutput.append(",,")
+        subjectsList.forEach { sub ->
+            sbOutput.append("\"${sub.uppercase().replace("\"", "\"\"")}\",")
+        }
+        sbOutput.append("OALL\n")
+
+        val subjectAppearedCount = subjectsList.associateWith { sub ->
+            sectionMarks.count { it.subjectName == sub }
+        }
+
+        val subjectTotalObt = subjectsList.associateWith { sub ->
+            sectionMarks.filter { it.subjectName == sub }.sumOf { it.marksObtained }
+        }
+
+        // 1st Summary Row: Total Marks Obtained
+        sbOutput.append("Total,,")
+        subjectsList.forEach { sub ->
+            val sumMarks = subjectTotalObt[sub] ?: 0.0
+            sbOutput.append(if (sumMarks % 1.0 == 0.0) "${sumMarks.toInt()}," else "$sumMarks,")
+        }
+        val sumPct = studentPercentages.values.sum()
+        sbOutput.append(String.format(java.util.Locale.US, "%.2f\n", sumPct))
+
+        // 2nd Summary Row: Average
+        sbOutput.append("Average,,")
+        subjectsList.forEach { sub ->
+            val appCount = subjectAppearedCount[sub] ?: 0
+            val maxMarkSub = subjectMaxMarks[sub] ?: 40.0
+            val sumMarks = subjectTotalObt[sub] ?: 0.0
+            if (appCount > 0) {
+                val averagePercentVal = (sumMarks / (appCount * maxMarkSub)) * 100.0
+                sbOutput.append(String.format(java.util.Locale.US, "%.2f,", averagePercentVal))
+            } else {
+                sbOutput.append("#DIV/0!,")
+            }
+        }
+        val sectionStrength = sortedStudents.size
+        val avgOverall = if (sectionStrength > 0) sumPct / sectionStrength else 0.0
+        sbOutput.append(String.format(java.util.Locale.US, "%.2f\n", avgOverall))
+
+        // 3rd Summary Row: Appeared students
+        sbOutput.append("Appeared,,")
+        subjectsList.forEach { sub ->
+            val appCount = subjectAppearedCount[sub] ?: 0
+            sbOutput.append("$appCount,")
+        }
+        sbOutput.append("$sectionStrength\n")
+
+        // 4th Summary Row: Below 33%
+        sbOutput.append("Below 33,,")
+        subjectsList.forEach { sub ->
+            val marksCountBelow = sectionMarks.filter { it.subjectName == sub }.count {
+                val mx = it.maxMarks
+                if (mx > 0) (it.marksObtained / mx) * 100.0 < 33.0 else true
+            }
+            sbOutput.append("$marksCountBelow,")
+        }
+        val countOallBelow33 = studentPercentages.values.count { it < 33.0 }
+        sbOutput.append("$countOallBelow33\n")
+
+        // 5th Summary Row: 33-59%
+        sbOutput.append("33-59,,")
+        subjectsList.forEach { sub ->
+            val sCount = sectionMarks.filter { it.subjectName == sub }.count {
+                val mx = it.maxMarks
+                val pt = if (mx > 0) (it.marksObtained / mx) * 100.0 else 0.0
+                pt >= 33.0 && pt < 60.0
+            }
+            sbOutput.append("$sCount,")
+        }
+        val countOall33to59 = studentPercentages.values.count { it >= 33.0 && it < 60.0 }
+        sbOutput.append("$countOall33to59\n")
+
+        // 6th Summary Row: 60-74%
+        sbOutput.append("60-74,,")
+        subjectsList.forEach { sub ->
+            val sCount = sectionMarks.filter { it.subjectName == sub }.count {
+                val mx = it.maxMarks
+                val pt = if (mx > 0) (it.marksObtained / mx) * 100.0 else 0.0
+                pt >= 60.0 && pt < 75.0
+            }
+            sbOutput.append("$sCount,")
+        }
+        val countOall60to74 = studentPercentages.values.count { it >= 60.0 && it < 75.0 }
+        sbOutput.append("$countOall60to74\n")
+
+        // 7th Summary Row: 75-89%
+        sbOutput.append("75-89,,")
+        subjectsList.forEach { sub ->
+            val sCount = sectionMarks.filter { it.subjectName == sub }.count {
+                val mx = it.maxMarks
+                val pt = if (mx > 0) (it.marksObtained / mx) * 100.0 else 0.0
+                pt >= 75.0 && pt < 90.0
+            }
+            sbOutput.append("$sCount,")
+        }
+        val countOall75to89 = studentPercentages.values.count { it >= 75.0 && it < 90.0 }
+        sbOutput.append("$countOall75to89\n")
+
+        // 8th Summary Row: 90-95%
+        sbOutput.append("90-95,,")
+        subjectsList.forEach { sub ->
+            val sCount = sectionMarks.filter { it.subjectName == sub }.count {
+                val mx = it.maxMarks
+                val pt = if (mx > 0) (it.marksObtained / mx) * 100.0 else 0.0
+                pt >= 90.0 && pt < 95.0
+            }
+            sbOutput.append("$sCount,")
+        }
+        val countOall90to95 = studentPercentages.values.count { it >= 90.0 && it < 95.0 }
+        sbOutput.append("$countOall90to95\n")
+
+        // 9th Summary Row: 95% & Above
+        sbOutput.append("95 & Above,,")
+        subjectsList.forEach { sub ->
+            val sCount = sectionMarks.filter { it.subjectName == sub }.count {
+                val mx = it.maxMarks
+                val pt = if (mx > 0) (it.marksObtained / mx) * 100.0 else 0.0
+                pt >= 95.0
+            }
+            sbOutput.append("$sCount,")
+        }
+        val countOall95 = studentPercentages.values.count { it >= 95.0 }
+        sbOutput.append("$countOall95\n")
+
+        // 10th Summary Row: Passed
+        sbOutput.append("Passed,,")
+        subjectsList.forEach { sub ->
+            val sCount = sectionMarks.filter { it.subjectName == sub }.count {
+                val mx = it.maxMarks
+                val pt = if (mx > 0) (it.marksObtained / mx) * 100.0 else 0.0
+                pt >= 33.0
+            }
+            sbOutput.append("$sCount,")
+        }
+        val countOallPassed = studentPercentages.values.count { it >= 33.0 }
+        sbOutput.append("$countOallPassed\n")
+
+        // 11th Summary Row: Pass Percentage
+        sbOutput.append("Pass %,,")
+        subjectsList.forEach { sub ->
+            val appCount = subjectAppearedCount[sub] ?: 0
+            val pCount = sectionMarks.filter { it.subjectName == sub }.count {
+                val mx = it.maxMarks
+                val pt = if (mx > 0) (it.marksObtained / mx) * 100.0 else 0.0
+                pt >= 33.0
+            }
+            if (appCount > 0) {
+                val pctPassed = (pCount.toDouble() / appCount) * 100.0
+                sbOutput.append(String.format(java.util.Locale.US, "%.1f,", pctPassed))
+            } else {
+                sbOutput.append("#DIV/0!,")
+            }
+        }
+        if (sectionStrength > 0) {
+            val passPctVal = (countOallPassed.toDouble() / sectionStrength) * 100.0
+            sbOutput.append(String.format(java.util.Locale.US, "%.1f\n", passPctVal))
+        } else {
+            sbOutput.append("0.0\n")
+        }
+
+        // 12th Block: Verify and Sign verification table rows at bottom
+        sbOutput.append("\n\n")
+        sbOutput.append("Verify and sign\n")
+        sbOutput.append("subject teachers,Signature\n")
+        subjectsList.forEach { sub ->
+            sbOutput.append("\"${sub.uppercase().replace("\"", "\"\"")}\"\n")
+        }
+        sbOutput.append("Class teacher\n")
+        sbOutput.append("Exam Incharge\n")
+        sbOutput.append("PRINCIPAL\n")
+
+        // Compile and write file inside user-accessible Downloads repository directory
+        val fileContent = sbOutput.toString()
         val cleanSchoolName = schoolName.replace("[^a-zA-Z0-9]".toRegex(), "_")
+        val cleanClass = className.replace("[^a-zA-Z0-9]".toRegex(), "_")
+        val cleanSecStr = sectionName.replace("[^a-zA-Z0-9]".toRegex(), "_")
         val cleanDistrict = districtName.replace("[^a-zA-Z0-9]".toRegex(), "_")
-        val fileName = "${cleanSchoolName}_${cleanDistrict}_Result_Analysis.csv"
+        val fileName = "${cleanSchoolName}_${cleanDistrict}_CLASS_${cleanClass}_SEC_${cleanSecStr}_MarksStatement.csv"
 
-        // Step 1: Write to Android device public Downloads folder via MediaStore resolver
         val resolver = context.contentResolver
-        var wasSavedToDownloads = false
-        
+        var savedDownloads = false
+
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
             val contentValues = android.content.ContentValues().apply {
                 put(android.provider.MediaStore.Downloads.DISPLAY_NAME, fileName)
@@ -865,9 +1265,9 @@ fun exportAnalyticsToExcel(
             }
             var fileUri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
             if (fileUri == null) {
-                // handle potential naming conflicts
-                val randomSuffix = (1000..9999).random()
-                contentValues.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, fileName.replace(".csv", "_$randomSuffix.csv"))
+                // handle collision naming
+                val rSfx = (1000..9999).random()
+                contentValues.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, fileName.replace(".csv", "_$rSfx.csv"))
                 fileUri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
             }
             if (fileUri != null) {
@@ -875,50 +1275,47 @@ fun exportAnalyticsToExcel(
                     if (os != null) {
                         os.write(fileContent.toByteArray(Charsets.UTF_8))
                         os.flush()
-                        wasSavedToDownloads = true
+                        savedDownloads = true
                     }
                 }
             }
         } else {
-            // Legacy Storage API write
             try {
-                val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
-                val destFile = java.io.File(downloadsDir, fileName)
+                val ddir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+                val destFile = java.io.File(ddir, fileName)
                 destFile.writeText(fileContent, Charsets.UTF_8)
-                wasSavedToDownloads = true
+                savedDownloads = true
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
 
-        // Always also save copy to local cache directory as fallback and to share via FileProvider
+        // Fallback local sharing FileProvider copy
         val cacheFile = java.io.File(context.cacheDir, fileName)
         cacheFile.writeText(fileContent, Charsets.UTF_8)
-        
-        val localFileUri = androidx.core.content.FileProvider.getUriForFile(
+
+        val localUri = androidx.core.content.FileProvider.getUriForFile(
             context,
             "${context.packageName}.fileprovider",
             cacheFile
         )
 
-        // Compile action intent
         val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
             type = "text/comma-separated-values"
-            putExtra(android.content.Intent.EXTRA_STREAM, localFileUri)
-            putExtra(android.content.Intent.EXTRA_SUBJECT, "$schoolName Result Analysis Exporter ($districtName)")
-            putExtra(android.content.Intent.EXTRA_TEXT, "Attached please find the comprehensive summary statistics sheet for $schoolName, $districtName district.")
+            putExtra(android.content.Intent.EXTRA_STREAM, localUri)
+            putExtra(android.content.Intent.EXTRA_SUBJECT, "Marksheet Excel: Class $className - Sec $sectionName ($districtName)")
+            putExtra(android.content.Intent.EXTRA_TEXT, "Hello Admin, enclosed please find the marks statement report sheet for Class $className - Section $sectionName, $districtName region.")
             addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
 
-        val chooserIntent = android.content.Intent.createChooser(shareIntent, "Share Result Sheet")
-        context.startActivity(chooserIntent)
+        context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Marksheet Excel"))
 
-        if (wasSavedToDownloads) {
-            Toast.makeText(context, "Successfully downloaded to Downloads folder: $fileName", Toast.LENGTH_LONG).show()
+        if (savedDownloads) {
+            Toast.makeText(context, "Successfully downloaded: $fileName", Toast.LENGTH_LONG).show()
         } else {
-            Toast.makeText(context, "Report compiled successfully! Opened share options.", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Excel report compiled to share!", Toast.LENGTH_LONG).show()
         }
     } catch (e: Exception) {
-        Toast.makeText(context, "Failed to compile Excel sheet: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+        Toast.makeText(context, "Failed to compile Excel: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
     }
 }
