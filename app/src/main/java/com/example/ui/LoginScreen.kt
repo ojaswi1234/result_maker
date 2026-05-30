@@ -174,13 +174,13 @@ fun LoginScreen(
                     Button(
                         onClick = {
                             val clientId = try {
-                                BuildConfig.GOOGLE_WEB_CLIENT_ID
-                            } catch (e: java.lang.Exception) {
+                                context.getString(context.resources.getIdentifier("default_web_client_id", "string", context.packageName))
+                            } catch (e: Exception) {
                                 ""
                             }
 
-                            if (clientId.isEmpty() || clientId == "YOUR_GOOGLE_WEB_CLIENT_ID") {
-                                authErrorMessage = "Google Web Client ID missing. Please set GOOGLE_WEB_CLIENT_ID in the Secrets panel."
+                            if (clientId.isEmpty()) {
+                                authErrorMessage = "Google Web Client ID missing. Ensure google-services.json is valid."
                             } else {
                                 val credentialManager = androidx.credentials.CredentialManager.create(context)
                                 val googleIdOption = com.google.android.libraries.identity.googleid.GetGoogleIdOption.Builder()
