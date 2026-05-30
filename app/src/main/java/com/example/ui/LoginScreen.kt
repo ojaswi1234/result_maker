@@ -213,15 +213,11 @@ fun LoginScreen(
                                         val getCredError = e.message ?: e.javaClass.simpleName
                                         authErrorMessage = if (getCredError.contains("No credentials available", ignoreCase = true) || e is androidx.credentials.exceptions.NoCredentialException) {
                                             "Google Sign-In blocked.\n\n" +
-                                            "COMMON FIXES:\n" +
-                                            "1. Ensure you passed a WEB Client ID to the app, NOT an Android Client ID.\n" +
-                                            "2. In Google Cloud Console, ensure BOTH the Web Client ID and Android Client ID (Package: com.aistudio.resultmaker.bkyvws, SHA-1: 63:C8:02:D9:60:36:4E:44:C4:8E:4E:9E:82:9F:FF:66:21:ED:26:36) are in the SAME project.\n" +
-                                            "3. If testing in emulator, it lacks Google accounts. Test on a physical device.\n" +
-                                            "Error Details: $getCredError"
+                                            "Emulator lacks Google accounts. Test on a physical device or use Firebase Email Auth."
                                         } else {
                                             "Google Sign-In failed: $getCredError\nEnsure your Android app's SHA-1 is registered."
                                         }
-                                    } catch (e: java.lang.Exception) {
+                                    } catch (e: Exception) {
                                         authErrorMessage = "Connection error: ${e.localizedMessage ?: e.toString()}"
                                     }
                                 }
