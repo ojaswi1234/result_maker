@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "265210770390",
+    "project_id": "school-result-maker",
+    "storage_bucket": "school-result-maker.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:265210770390:android:a1c894f78fa9689a4a6a77",
+        "android_client_info": {
+          "package_name": "com.aistudio.resultmaker.bkyvws"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "265210770390-po0mrell69mqk6jeessik4b074hkt1kf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDDpDmDP2sarqbwUcEsIiD42_nZVa4NWWE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "265210770390-466reim98ccgt84iikui2hgg3uthmdk0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

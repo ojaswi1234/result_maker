@@ -203,9 +203,20 @@ fun LoginScreen(
                                         if (credential is androidx.credentials.CustomCredential && 
                                             credential.type == com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
                                             val googleIdTokenCredential = com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.createFrom(credential.data)
-                                            val email = googleIdTokenCredential.id
-                                            val name = googleIdTokenCredential.displayName ?: email.substringBefore("@")
-                                            viewModel.signInWithGoogle(email, name, onLoginSuccess)
+                                            val idToken = googleIdTokenCredential.idToken
+                                            val firebaseCredential = com.google.firebase.auth.GoogleAuthProvider.getCredential(idToken, null)
+                                            
+                                            com.google.firebase.auth.FirebaseAuth.getInstance().signInWithCredential(firebaseCredential)
+                                                .addOnCompleteListener { task ->
+                                                    if (task.isSuccessful) {
+                                                        val user = task.result?.user
+                                                        val email = user?.email ?: googleIdTokenCredential.id
+                                                        val name = user?.displayName ?: googleIdTokenCredential.displayName ?: email.substringBefore("@")
+                                                        viewModel.signInWithGoogle(email, name, onLoginSuccess)
+                                                    } else {
+                                                        authErrorMessage = "Firebase Auth failed: ${task.exception?.localizedMessage}"
+                                                    }
+                                                }
                                         } else {
                                             authErrorMessage = "Google login responded with mismatch: ${credential.type}"
                                         }
