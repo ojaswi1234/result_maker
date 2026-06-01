@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 sealed interface AuthState {
     object Unauthenticated : AuthState
     data class Authenticated(val email: String, val name: String, val photoUrl: String?) : AuthState
+    data class VerificationPending(val email: String) : AuthState
 }
 
 class AppViewModel(application: Application) : AndroidViewModel(application) {
@@ -61,16 +62,53 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Google Sign-In Simulation
-    fun signInWithGoogle(email: String, displayName: String, onComplete: () -> Unit) {
-        viewModelScope.launch {
-            _authState.value = AuthState.Authenticated(
-                email = email,
-                name = displayName,
-                photoUrl = null
-            )
-            onComplete()
-        }
+    // Firebase Google Auth
+    fun signInWithGoogle(idToken: String, onLoginSuccess: () -> Unit, onError: (String) -> Unit) {
+        val credential = com.google.firebase.auth.GoogleAuthProvider.getCredential(idToken, null)
+        com.google.firebase.auth.FirebaseAuth.getInstance().signInWithCredential(credential)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    val user = task.result?.user
+                    if (user != null && user.email != null) {
+                        _authState.value = AuthState.Authenticated(
+                            email = user.email!!,
+                            name = user.displayName ?: user.email!!.substringBefore("@"),
+                            photoUrl = null
+                        )
+                        onLoginSuccess()
+                    } else {
+                        onError("Google Login failed: No user email returned")
+                    }
+                } else {
+                    onError("Google Login failed: ${task.exception?.message}")
+                }
+            }
+    }
+
+    // Passwordless Email Link Authentication
+    fun sendPasswordlessLink(email: String, context: android.content.Context, onError: (String) -> Unit) {
+        val actionCodeSettings = com.google.firebase.auth.ActionCodeSettings.newBuilder()
+            .setUrl("https://school-result-maker.firebaseapp.com/")
+            .setHandleCodeInApp(true)
+            .setAndroidPackageName(getApplication<Application>().packageName, true, "24")
+            .build()
+            
+        val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+        auth.sendSignInLinkToEmail(email, actionCodeSettings)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    val prefs = context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+                    prefs.edit().putString("pending_email", email).apply()
+                    _authState.value = AuthState.VerificationPending(email)
+                } else {
+                    onError("Failed to send link: ${task.exception?.message}")
+                }
+            }
+    }
+
+    fun markAuthenticated(email: String, onComplete: () -> Unit) {
+        _authState.value = AuthState.Authenticated(email, email.substringBefore("@"), null)
+        onComplete()
     }
 
     fun logout(onComplete: () -> Unit) {

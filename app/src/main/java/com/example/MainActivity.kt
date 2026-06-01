@@ -1,6 +1,9 @@
 package com.example
 
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -19,6 +22,7 @@ import com.example.ui.*
 import com.example.ui.theme.MyApplicationTheme
 import com.example.viewmodel.AppViewModel
 import com.example.viewmodel.AuthState
+import com.google.firebase.auth.FirebaseAuth
 
 class MainActivity : ComponentActivity() {
     private val viewModel: AppViewModel by viewModels()
@@ -30,6 +34,40 @@ class MainActivity : ComponentActivity() {
         setContent {
             MyApplicationTheme {
                 MainAppHost(viewModel = viewModel)
+            }
+        }
+        
+        handleIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        val action = intent?.action
+        val data = intent?.dataString
+        
+        if (Intent.ACTION_VIEW == action && data != null) {
+            val auth = FirebaseAuth.getInstance()
+            if (auth.isSignInWithEmailLink(data)) {
+                val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                val email = prefs.getString("pending_email", null)
+                
+                if (email != null) {
+                    auth.signInWithEmailLink(email, data)
+                        .addOnCompleteListener { task ->
+                            if (task.isSuccessful) {
+                                prefs.edit().remove("pending_email").apply()
+                                viewModel.markAuthenticated(email) {} 
+                            } else {
+                                Toast.makeText(this, "Login failed: ${task.exception?.message}", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                } else {
+                    Toast.makeText(this, "Email not found. Please request a new link from the app.", Toast.LENGTH_LONG).show()
+                }
             }
         }
     }

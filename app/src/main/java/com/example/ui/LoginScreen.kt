@@ -23,15 +23,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.viewmodel.AppViewModel
+import com.example.viewmodel.AuthState
 import com.example.BuildConfig
 import android.widget.Toast
-import androidx.credentials.CredentialManager
-import androidx.credentials.GetCredentialRequest
-import androidx.credentials.CustomCredential
-import androidx.credentials.exceptions.GetCredentialException
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
-import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
 @Composable
@@ -43,6 +43,20 @@ fun LoginScreen(
     val coroutineScope = rememberCoroutineScope()
     var authErrorMessage by remember { mutableStateOf<String?>(null) }
     var isRegisterTab by remember { mutableStateOf(false) }
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    
+    val authState by viewModel.authState.collectAsState()
+
+    if (authState is AuthState.VerificationPending) {
+        VerificationPendingScreen(
+            email = (authState as AuthState.VerificationPending).email,
+            onVerified = {
+                viewModel.markAuthenticated((authState as AuthState.VerificationPending).email, onLoginSuccess)
+            }
+        )
+        return
+    }
 
     Box(
         modifier = Modifier
@@ -122,34 +136,8 @@ fun LoginScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Custom tab selector for Register/Login
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                shape = RoundedCornerShape(12.dp)
-                            )
-                            .padding(4.dp)
-                    ) {
-                        TabButton(
-                            text = "Login",
-                            isSelected = !isRegisterTab,
-                            onClick = { isRegisterTab = false },
-                            modifier = Modifier.weight(1f)
-                        )
-                        TabButton(
-                            text = "Register",
-                            isSelected = isRegisterTab,
-                            onClick = { isRegisterTab = true },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
                     Text(
-                        text = if (isRegisterTab) "Create School Coordinator Account" else "Access School Management Portal",
+                        text = "Access School Management Portal",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold,
                         textAlign = TextAlign.Center,
@@ -157,11 +145,7 @@ fun LoginScreen(
                     )
 
                     Text(
-                        text = if (isRegisterTab) {
-                            "Register your institution with your Google Workspace credentials to enable unified cloud synchronization."
-                        } else {
-                            "Secure sign-in protects student portfolios, grade databases, and generated transcript sheets."
-                        },
+                        text = "Enter your email to receive a secure sign-in magic link. No passwords needed.",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
@@ -170,67 +154,93 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // SIGN IN WITH GOOGLE BUTTON (OFFICIAL MATCH DESIGN)
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { email = it },
+                        label = { Text("Email") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     Button(
                         onClick = {
-                            val clientId = try {
-                                context.getString(context.resources.getIdentifier("default_web_client_id", "string", context.packageName))
-                            } catch (e: Exception) {
-                                ""
+                            authErrorMessage = null
+                            if (email.isBlank()) {
+                                authErrorMessage = "Please enter an email address"
+                                return@Button
                             }
+                            
+                            viewModel.sendPasswordlessLink(email, context) { error ->
+                                authErrorMessage = error
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            text = "Send Magic Login Link",
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 15.sp
+                        )
+                    }
 
-                            if (clientId.isEmpty()) {
-                                authErrorMessage = "Google Web Client ID missing. Ensure google-services.json is valid."
-                            } else {
-                                val credentialManager = androidx.credentials.CredentialManager.create(context)
-                                val googleIdOption = com.google.android.libraries.identity.googleid.GetGoogleIdOption.Builder()
-                                    .setFilterByAuthorizedAccounts(false)
-                                    .setServerClientId(clientId)
-                                    .setAutoSelectEnabled(false)
-                                    .build()
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        HorizontalDivider(modifier = Modifier.weight(1f))
+                        Text(
+                            text = "OR",
+                            modifier = Modifier.padding(horizontal = 8.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        HorizontalDivider(modifier = Modifier.weight(1f))
+                    }
 
-                                val request = androidx.credentials.GetCredentialRequest.Builder()
-                                    .addCredentialOption(googleIdOption)
-                                    .build()
+                    Button(
+                        onClick = {
+                            val clientId = "265210770390-po0mrell69mqk6jeessik4b074hkt1kf.apps.googleusercontent.com"
+                            val credentialManager = androidx.credentials.CredentialManager.create(context)
+                            val googleIdOption = com.google.android.libraries.identity.googleid.GetGoogleIdOption.Builder()
+                                .setFilterByAuthorizedAccounts(false)
+                                .setServerClientId(clientId)
+                                .setAutoSelectEnabled(false)
+                                .build()
 
-                                coroutineScope.launch {
-                                    try {
-                                        val result = credentialManager.getCredential(
-                                            context = context,
-                                            request = request
+                            val request = androidx.credentials.GetCredentialRequest.Builder()
+                                .addCredentialOption(googleIdOption)
+                                .build()
+
+                            coroutineScope.launch {
+                                try {
+                                    val result = credentialManager.getCredential(
+                                        context = context,
+                                        request = request
+                                    )
+                                    val credential = result.credential
+                                    if (credential is androidx.credentials.CustomCredential &&
+                                        credential.type == com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                                        val googleIdTokenCredential = com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.createFrom(credential.data)
+                                        val idToken = googleIdTokenCredential.idToken
+                                        viewModel.signInWithGoogle(
+                                            idToken = idToken,
+                                            onLoginSuccess = onLoginSuccess,
+                                            onError = { error -> authErrorMessage = error }
                                         )
-                                        val credential = result.credential
-                                        if (credential is androidx.credentials.CustomCredential && 
-                                            credential.type == com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
-                                            val googleIdTokenCredential = com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.createFrom(credential.data)
-                                            val idToken = googleIdTokenCredential.idToken
-                                            val firebaseCredential = com.google.firebase.auth.GoogleAuthProvider.getCredential(idToken, null)
-                                            
-                                            com.google.firebase.auth.FirebaseAuth.getInstance().signInWithCredential(firebaseCredential)
-                                                .addOnCompleteListener { task ->
-                                                    if (task.isSuccessful) {
-                                                        val user = task.result?.user
-                                                        val email = user?.email ?: googleIdTokenCredential.id
-                                                        val name = user?.displayName ?: googleIdTokenCredential.displayName ?: email.substringBefore("@")
-                                                        viewModel.signInWithGoogle(email, name, onLoginSuccess)
-                                                    } else {
-                                                        authErrorMessage = "Firebase Auth failed: ${task.exception?.localizedMessage}"
-                                                    }
-                                                }
-                                        } else {
-                                            authErrorMessage = "Google login responded with mismatch: ${credential.type}"
-                                        }
-                                    } catch (e: androidx.credentials.exceptions.GetCredentialException) {
-                                        val getCredError = e.message ?: e.javaClass.simpleName
-                                        authErrorMessage = if (getCredError.contains("No credentials available", ignoreCase = true) || e is androidx.credentials.exceptions.NoCredentialException) {
-                                            "Google Sign-In blocked.\n\n" +
-                                            "Emulator lacks Google accounts. Test on a physical device or use Firebase Email Auth."
-                                        } else {
-                                            "Google Sign-In failed: $getCredError\nEnsure your Android app's SHA-1 is registered."
-                                        }
-                                    } catch (e: Exception) {
-                                        authErrorMessage = "Connection error: ${e.localizedMessage ?: e.toString()}"
+                                    } else {
+                                        authErrorMessage = "Google login mismatch: ${credential.type}"
                                     }
+                                } catch (e: androidx.credentials.exceptions.GetCredentialException) {
+                                    authErrorMessage = "Credential Error: ${e.message}"
+                                } catch (e: androidx.credentials.exceptions.GetCredentialCancellationException) {
+                                    authErrorMessage = "Login Cancelled: ${e.message}"
+                                } catch (e: Exception) {
+                                    authErrorMessage = "Error: ${e.javaClass.simpleName} - ${e.message}"
                                 }
                             }
                         },
@@ -253,11 +263,10 @@ fun LoginScreen(
                             horizontalArrangement = Arrangement.Center,
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            // G symbol drawing
                             GSymbolSvg(modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
-                                text = if (isRegisterTab) "Sign up with Google" else "Sign in with Google",
+                                text = "Sign in with Google",
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 15.sp,
                                 color = Color(0xFF1F1F1F)
@@ -371,3 +380,57 @@ fun GSymbolSvg(modifier: Modifier = Modifier) {
         )
     }
 }
+
+@Composable
+fun VerificationPendingScreen(email: String, onVerified: () -> Unit) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val user = FirebaseAuth.getInstance().currentUser
+                user?.reload()?.addOnCompleteListener {
+                    if (user.isEmailVerified) {
+                        onVerified()
+                    }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "Check your inbox",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "We sent a verification link to $email.\nClick the link in the email to continue.",
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 32.dp)
+            )
+        }
+    }
+}
+Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "Check your inbox",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "We sent a magic login link to $email.\nClick the link in the email to automatically log in

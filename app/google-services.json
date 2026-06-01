@@ -14,15 +14,15 @@
       },
       "oauth_client": [
         {
-          "client_id": "265210770390-v7bnc6binnhub1or0havkiqfh8sflkgo.apps.googleusercontent.com",
+          "client_id": "265210770390-n7dbcmpgift541ak9kdbankodbhqsja6.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.aistudio.resultmaker.bkyvws",
-            "certificate_hash": "af0ded3187434fdf15b1e1d0c2f5da7d11a2832c"
+            "certificate_hash": "8c8c5b8ac1202ed3f1ba129007ff237cafae1f75"
           }
         },
         {
-          "client_id": "265210770390-po0mrell69mqk6jeessik4b074hkt1kf.apps.googleusercontent.com",
+          "client_id": "265210770390-p994rsmnojaja50uf6g4jfu8q0mo2jk8.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
