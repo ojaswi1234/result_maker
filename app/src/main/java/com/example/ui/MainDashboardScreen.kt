@@ -24,6 +24,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
+import android.util.Base64
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
+import java.io.ByteArrayOutputStream
+import androidx.compose.ui.res.stringResource
+import com.example.R
 import com.example.data.SchoolSetting
 import com.example.viewmodel.AppViewModel
 import com.example.viewmodel.AuthState
@@ -65,13 +82,13 @@ fun MainDashboardScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "Global Academy",
+                        text = stringResource(R.string.school_name_default),
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
                         color = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        text = "Signed in context:",
+                        text = stringResource(R.string.signed_in_context),
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.outline
                     )
@@ -86,7 +103,7 @@ fun MainDashboardScreen(
                     
                     // ROLE SIMULATOR ROW SELECTORS
                     Text(
-                        text = "Simulate Role Context:",
+                        text = stringResource(R.string.simulate_role_context),
                         fontWeight = FontWeight.Bold,
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.outline
@@ -115,7 +132,13 @@ fun MainDashboardScreen(
                                     colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
                                 )
                                 Text(
-                                    text = if (r == "Principal/Coordinator") "School Coordinator" else r,
+                                    text = if (r == "Principal/Coordinator") stringResource(R.string.school_coordinator) else {
+                                        when(r) {
+                                            "Admin" -> stringResource(R.string.role_admin)
+                                            "Teacher" -> stringResource(R.string.role_teacher)
+                                            else -> stringResource(R.string.role_principal_coordinator)
+                                        }
+                                    },
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                     fontSize = 12.sp
                                 )
@@ -130,7 +153,7 @@ fun MainDashboardScreen(
                 // DRAWER ITEMS - ONLY ONE MAIN FUNCTION BUTTON: Exam setting
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Default.Settings, contentDescription = "") },
-                    label = { Text("Exam setting") },
+                    label = { Text(stringResource(R.string.exam_setting)) },
                     selected = false,
                     onClick = {
                         scope.launch {
@@ -141,11 +164,77 @@ fun MainDashboardScreen(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("drawer_exam_setting_button")
                 )
 
+                Divider(modifier = Modifier.padding(vertical = 12.dp))
+                
+                // LANGUAGE SWITCHER SECTION
+                Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(imageVector = Icons.Default.Language, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.outline)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.language_switcher_label),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    val currentLocale = AppCompatDelegate.getApplicationLocales().toLanguageTags()
+                    val languages = listOf(
+                        "en" to "English",
+                        "hi" to "हिन्दी (Hindi)",
+                        "es" to "Español",
+                        "te" to "తెలుగు",
+                        "ta" to "தமிழ்",
+                        "bn" to "বাংলা",
+                        "mr" to "मराठी"
+                    )
+                    
+                    var expanded by remember { mutableStateOf(false) }
+                    val currentLangName = languages.find { it.first == currentLocale }?.second ?: "English"
+
+                    Box {
+                        OutlinedButton(
+                            onClick = { expanded = true },
+                            modifier = Modifier.fillMaxWidth().height(40.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(currentLangName, fontSize = 12.sp)
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                        
+                        DropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false },
+                            modifier = Modifier.fillMaxWidth(0.6f)
+                        ) {
+                            languages.forEach { (tag, name) ->
+                                DropdownMenuItem(
+                                    text = { Text(name, fontSize = 12.sp) },
+                                    onClick = {
+                                        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(tag))
+                                        expanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.weight(1f))
 
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Default.Logout, contentDescription = "", tint = MaterialTheme.colorScheme.error) },
-                    label = { Text("Sign Out Session", color = MaterialTheme.colorScheme.error) },
+                    label = { Text(stringResource(R.string.sign_out_session), color = MaterialTheme.colorScheme.error) },
                     selected = false,
                     onClick = {
                         scope.launch {
@@ -164,7 +253,7 @@ fun MainDashboardScreen(
                 TopAppBar(
                     title = {
                         Text(
-                            text = "School Workspace Portal",
+                            text = stringResource(R.string.dashboard_title),
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp
                         )
@@ -174,7 +263,7 @@ fun MainDashboardScreen(
                             onClick = { scope.launch { drawerState.open() } },
                             modifier = Modifier.testTag("drawer_hamburger_button")
                         ) {
-                            Icon(imageVector = Icons.Default.Menu, contentDescription = "Menu Drawer")
+                            Icon(imageVector = Icons.Default.Menu, contentDescription = stringResource(R.string.menu_drawer))
                         }
                     },
                     actions = {
@@ -189,7 +278,13 @@ fun MainDashboardScreen(
                             modifier = Modifier.padding(end = 4.dp)
                         ) {
                             Text(
-                                text = if (activeRole == "Principal/Coordinator") "Coordinator" else activeRole,
+                                text = if (activeRole == "Principal/Coordinator") stringResource(R.string.coordinator) else {
+                                    when(activeRole) {
+                                        "Admin" -> stringResource(R.string.role_admin)
+                                        "Teacher" -> stringResource(R.string.role_teacher)
+                                        else -> activeRole
+                                    }
+                                },
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
@@ -202,7 +297,7 @@ fun MainDashboardScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Logout,
-                                contentDescription = "Sign Out",
+                                contentDescription = stringResource(R.string.sign_out),
                                 tint = MaterialTheme.colorScheme.error
                             )
                         }
@@ -251,7 +346,7 @@ fun MainDashboardScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Edit,
-                            contentDescription = "Edit Details",
+                            contentDescription = stringResource(R.string.edit_details),
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
                         )
@@ -287,11 +382,36 @@ fun MainDashboardScreen(
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = schoolSetting.logoEmoji,
-                                fontSize = 38.sp,
-                                textAlign = TextAlign.Center
-                            )
+                            if (schoolSetting.schoolLogoBase64.isNotEmpty()) {
+                                val logoBitmap = remember(schoolSetting.schoolLogoBase64) {
+                                    try {
+                                        val bytes = Base64.decode(schoolSetting.schoolLogoBase64, Base64.DEFAULT)
+                                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size).asImageBitmap()
+                                    } catch (e: Exception) {
+                                        null
+                                    }
+                                }
+                                if (logoBitmap != null) {
+                                    Image(
+                                        bitmap = logoBitmap,
+                                        contentDescription = "School Logo",
+                                        modifier = Modifier.fillMaxSize().padding(4.dp),
+                                        contentScale = ContentScale.Fit
+                                    )
+                                } else {
+                                    Text(
+                                        text = schoolSetting.logoEmoji,
+                                        fontSize = 38.sp,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            } else {
+                                Text(
+                                    text = schoolSetting.logoEmoji,
+                                    fontSize = 38.sp,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
                         }
 
                         Column(
@@ -311,12 +431,12 @@ fun MainDashboardScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.CalendarToday,
-                                    contentDescription = "Session",
+                                    contentDescription = stringResource(R.string.session_label),
                                     tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
                                     modifier = Modifier.size(14.dp)
                                 )
                                 Text(
-                                    text = "Session " + schoolSetting.session,
+                                    text = stringResource(R.string.session_label) + " " + schoolSetting.session,
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Medium,
                                     color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
@@ -330,7 +450,7 @@ fun MainDashboardScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Place,
-                                        contentDescription = "Location",
+                                        contentDescription = stringResource(R.string.location_label),
                                         tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
                                         modifier = Modifier.size(14.dp)
                                     )
@@ -364,7 +484,7 @@ fun MainDashboardScreen(
                     modifier = Modifier.size(16.dp)
                 )
                 Text(
-                    text = "Signed in: $userEmail",
+                    text = stringResource(R.string.signed_in_format).format(userEmail),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -373,7 +493,7 @@ fun MainDashboardScreen(
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = "Academic Modules",
+                text = stringResource(R.string.academic_modules),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
@@ -388,8 +508,8 @@ fun MainDashboardScreen(
             ) {
                 item {
                     DashboardModuleCard(
-                        title = "Students & Classes",
-                        subtitle = "Classes, Sections & Rosters",
+                        title = stringResource(R.string.module_students),
+                        subtitle = stringResource(R.string.module_students_desc),
                         icon = Icons.Default.Group,
                         colorAccent = MaterialTheme.colorScheme.primary,
                         onClick = onNavigateToStudents,
@@ -399,8 +519,8 @@ fun MainDashboardScreen(
 
                 item {
                     DashboardModuleCard(
-                        title = "Marks Entry",
-                        subtitle = "Input Grades & Subjects",
+                        title = stringResource(R.string.module_marks),
+                        subtitle = stringResource(R.string.module_marks_desc),
                         icon = Icons.Default.EditNote,
                         colorAccent = Color(0xFF0F9D58), // Google Green style
                         onClick = onNavigateToMarksEntry,
@@ -410,8 +530,8 @@ fun MainDashboardScreen(
 
                 item {
                     DashboardModuleCard(
-                        title = "Result Generator",
-                        subtitle = "Generate Report PDF",
+                        title = stringResource(R.string.module_results),
+                        subtitle = stringResource(R.string.module_results_desc),
                         icon = Icons.Default.ReceiptLong,
                         colorAccent = Color(0xFFDB4437), // Google Red style
                         onClick = onNavigateToResultGenerator,
@@ -421,8 +541,8 @@ fun MainDashboardScreen(
 
                 item {
                     DashboardModuleCard(
-                        title = "Result Analysis",
-                        subtitle = "Performance Analytics",
+                        title = stringResource(R.string.module_analysis),
+                        subtitle = stringResource(R.string.module_analysis_desc),
                         icon = Icons.Default.Assessment,
                         colorAccent = Color(0xFFF4B400), // Google Yellow style
                         onClick = onNavigateToAnalysis,
@@ -437,8 +557,8 @@ fun MainDashboardScreen(
             EditSchoolDetailsDialog(
                 currentSetting = schoolSetting,
                 onDismiss = { showEditDialog = false },
-                onSave = { name, session, loc, emoji, colorHex ->
-                    viewModel.updateSchoolDetails(name, session, loc, emoji, colorHex)
+                onSave = { name, session, loc, emoji, colorHex, affiliation, logo ->
+                    viewModel.updateSchoolDetails(name, session, loc, emoji, colorHex, affiliation, logo)
                     showEditDialog = false
                 }
             )
@@ -518,13 +638,27 @@ fun DashboardModuleCard(
 fun EditSchoolDetailsDialog(
     currentSetting: SchoolSetting,
     onDismiss: () -> Unit,
-    onSave: (name: String, session: String, location: String, emoji: String, colorHex: String) -> Unit
+    onSave: (name: String, session: String, location: String, emoji: String, colorHex: String, affiliationNumber: String, logoBase64: String) -> Unit
 ) {
+    val context = LocalContext.current
     var name by remember { mutableStateOf(currentSetting.schoolName) }
     var session by remember { mutableStateOf(currentSetting.session) }
     var location by remember { mutableStateOf(currentSetting.location) }
+    var affiliationNumber by remember { mutableStateOf(currentSetting.affiliationNumber) }
     var selectedEmoji by remember { mutableStateOf(currentSetting.logoEmoji) }
     var selectedColorHex by remember { mutableStateOf(currentSetting.logoColorHex) }
+    var schoolLogoBase64 by remember { mutableStateOf(currentSetting.schoolLogoBase64) }
+
+    val logoLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            val b64 = uriToBase64(context, uri)
+            if (b64 != null) {
+                schoolLogoBase64 = b64
+            }
+        }
+    }
 
     val logoPredefinedEmojis = listOf("🏫", "🎓", "📚", "🖊️", "🔬", "🌍", "🏆", "🎨")
     val brandPredefinedColors = listOf(
@@ -540,20 +674,20 @@ fun EditSchoolDetailsDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "Edit School Profile",
+                text = stringResource(R.string.edit_school_profile),
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp
             )
         },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("School Name") },
+                    label = { Text(stringResource(R.string.school_name_label)) },
                     modifier = Modifier.fillMaxWidth().testTag("edit_school_name_field"),
                     singleLine = true
                 )
@@ -561,8 +695,8 @@ fun EditSchoolDetailsDialog(
                 OutlinedTextField(
                     value = session,
                     onValueChange = { session = it },
-                    label = { Text("Academic Session") },
-                    placeholder = { Text("e.g. 2025 - 2026") },
+                    label = { Text(stringResource(R.string.academic_session_label)) },
+                    placeholder = { Text(stringResource(R.string.session_placeholder)) },
                     modifier = Modifier.fillMaxWidth().testTag("edit_school_session_field"),
                     singleLine = true
                 )
@@ -570,14 +704,95 @@ fun EditSchoolDetailsDialog(
                 OutlinedTextField(
                     value = location,
                     onValueChange = { location = it },
-                    label = { Text("School Location") },
-                    placeholder = { Text("e.g. New Delhi, India") },
+                    label = { Text(stringResource(R.string.school_location_label)) },
+                    placeholder = { Text(stringResource(R.string.location_placeholder)) },
                     modifier = Modifier.fillMaxWidth().testTag("edit_school_location_field"),
                     singleLine = true
                 )
 
+                OutlinedTextField(
+                    value = affiliationNumber,
+                    onValueChange = { newValue ->
+                        // Allow only digits
+                        val filtered = newValue.filter { it.isDigit() }
+                        if (filtered.length <= 10) {
+                            affiliationNumber = filtered
+                        }
+                    },
+                    label = { Text(stringResource(R.string.affiliation_number_label)) },
+                    placeholder = { Text(stringResource(R.string.affiliation_placeholder)) },
+                    modifier = Modifier.fillMaxWidth().testTag("edit_school_affiliation_field"),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+
                 Text(
-                    text = "Select Logo Emoji",
+                    text = stringResource(R.string.school_branding_logo),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(60.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (schoolLogoBase64.isNotEmpty()) {
+                            val bitmap = remember(schoolLogoBase64) {
+                                try {
+                                    val bytes = Base64.decode(schoolLogoBase64, Base64.DEFAULT)
+                                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size).asImageBitmap()
+                                } catch (e: Exception) { null }
+                            }
+                            if (bitmap != null) {
+                                Image(
+                                    bitmap = bitmap,
+                                    contentDescription = stringResource(R.string.logo_preview),
+                                    modifier = Modifier.fillMaxSize().padding(4.dp),
+                                    contentScale = ContentScale.Fit
+                                )
+                            } else {
+                                Text(selectedEmoji, fontSize = 24.sp)
+                            }
+                        } else {
+                            Text(selectedEmoji, fontSize = 24.sp)
+                        }
+                    }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Button(
+                            onClick = { logoLauncher.launch("image/*") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.Upload, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(R.string.upload_custom_logo), fontSize = 12.sp)
+                        }
+                        if (schoolLogoBase64.isNotEmpty()) {
+                            TextButton(
+                                onClick = { schoolLogoBase64 = "" },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(stringResource(R.string.reset_to_emoji), color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+
+                Text(
+                    text = stringResource(R.string.select_logo_emoji),
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
                     modifier = Modifier.padding(top = 4.dp)
@@ -610,7 +825,7 @@ fun EditSchoolDetailsDialog(
                 }
 
                 Text(
-                    text = "Select School Brand Color",
+                    text = stringResource(R.string.select_brand_color),
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
                     modifier = Modifier.padding(top = 4.dp)
@@ -647,17 +862,17 @@ fun EditSchoolDetailsDialog(
             Button(
                 onClick = {
                     if (name.isNotEmpty() && session.isNotEmpty()) {
-                        onSave(name, session, location, selectedEmoji, selectedColorHex)
+                        onSave(name, session, location, selectedEmoji, selectedColorHex, affiliationNumber, schoolLogoBase64)
                     }
                 },
                 modifier = Modifier.testTag("save_school_settings_button")
             ) {
-                Text("Apply Modifications")
+                Text(stringResource(R.string.apply_modifications))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.cancel))
             }
         }
     )

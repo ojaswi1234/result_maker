@@ -14,7 +14,9 @@ data class SchoolSetting(
     val location: String = "New Delhi, India",
     val principalSignature: String = "",
     val teacherSignature: String = "",
-    val contactNumber: String = "9XXXXXXXXX"
+    val contactNumber: String = "9XXXXXXXXX",
+    val affiliationNumber: String = "",
+    val schoolLogoBase64: String = ""
 )
 
 @Entity(tableName = "students")
@@ -23,7 +25,9 @@ data class Student(
     val name: String,
     val rollNumber: String,
     val className: String,
-    val sectionName: String
+    val sectionName: String,
+    val fatherName: String = "",
+    val motherName: String = ""
 )
 
 @Entity(
@@ -187,7 +191,7 @@ interface SectionSubjectDao {
 
 @Database(
     entities = [SchoolSetting::class, Student::class, Mark::class, ExamConfig::class, SectionSubject::class],
-    version = 6, // Incremented version to add contactNumber to SchoolSetting
+    version = 7, // Incremented version to add parent names and school logo fields
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

@@ -246,8 +246,9 @@ fun LoginScreen(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(52.dp)
+                            .height(56.dp)
                             .testTag("google_signin_button"),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.White,
                             contentColor = Color(0xFF1F1F1F)
@@ -263,12 +264,12 @@ fun LoginScreen(
                             horizontalArrangement = Arrangement.Center,
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            GSymbolSvg(modifier = Modifier.size(20.dp))
+                            GSymbolSvg(modifier = Modifier.size(24.dp))
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
                                 text = "Sign in with Google",
                                 fontWeight = FontWeight.Medium,
-                                fontSize = 15.sp,
+                                fontSize = 16.sp,
                                 color = Color(0xFF1F1F1F)
                             )
                         }
@@ -414,23 +415,10 @@ fun VerificationPendingScreen(email: String, onVerified: () -> Unit) {
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "We sent a verification link to $email.\nClick the link in the email to continue.",
+                text = "We sent a magic login link to $email.\nClick the link in the email to automatically log in.",
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = 32.dp)
             )
         }
     }
 }
-Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "Check your inbox",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "We sent a magic login link to $email.\nClick the link in the email to automatically log in

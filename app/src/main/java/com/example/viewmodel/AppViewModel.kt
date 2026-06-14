@@ -51,12 +51,25 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val sharedPrefs = application.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
         val isDemoCleaned = sharedPrefs.getBoolean("is_demo_cleaned_v7", false)
 
-        viewModelScope.launch(Dispatchers.IO) {
-            if (!isDemoCleaned) {
-                // Clear all student, mark, configuration and section subject data
-                database.clearAllTables()
-                sharedPrefs.edit().putBoolean("is_demo_cleaned_v7", true).apply()
+        // Session Persistence Check
+        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+        if (currentUser != null) {
+            val loginTime = sharedPrefs.getLong("login_timestamp", 0L)
+            val oneWeekMillis = 7L * 24 * 60 * 60 * 1000
+            
+            if (System.currentTimeMillis() - loginTime > oneWeekMillis) {
+                com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
+                _authState.value = AuthState.Unauthenticated
+            } else {
+                _authState.value = AuthState.Authenticated(
+                    email = currentUser.email ?: "",
+                    name = currentUser.displayName ?: currentUser.email?.substringBefore("@") ?: "User",
+                    photoUrl = null
+                )
             }
+        }
+
+        viewModelScope.launch(Dispatchers.IO) {
             // Check if settings need to be initialized or fetched
             repository.getSchoolSettingDirect()
         }
@@ -70,6 +83,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 if (task.isSuccessful) {
                     val user = task.result?.user
                     if (user != null && user.email != null) {
+                        
+                        // Save login timestamp
+                        getApplication<Application>().getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+                            .edit().putLong("login_timestamp", System.currentTimeMillis()).apply()
+
                         _authState.value = AuthState.Authenticated(
                             email = user.email!!,
                             name = user.displayName ?: user.email!!.substringBefore("@"),
@@ -107,6 +125,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun markAuthenticated(email: String, onComplete: () -> Unit) {
+        // Save login timestamp
+        getApplication<Application>().getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+            .edit().putLong("login_timestamp", System.currentTimeMillis()).apply()
+
         _authState.value = AuthState.Authenticated(email, email.substringBefore("@"), null)
         onComplete()
     }
@@ -135,7 +157,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Update School Settings
-    fun updateSchoolDetails(name: String, session: String, location: String, emoji: String, colorHex: String) {
+    fun updateSchoolDetails(name: String, session: String, location: String, emoji: String, colorHex: String, affiliationNumber: String, schoolLogoBase64: String) {
         executeDbAction("UPDATE_SCHOOL_DETAILS") {
             val current = repository.getSchoolSettingDirect()
             val updated = SchoolSetting(
@@ -147,7 +169,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 location = location,
                 principalSignature = current.principalSignature,
                 teacherSignature = current.teacherSignature,
-                contactNumber = current.contactNumber
+                contactNumber = current.contactNumber,
+                affiliationNumber = affiliationNumber,
+                schoolLogoBase64 = schoolLogoBase64
             )
             repository.updateSchoolSetting(updated)
         }
@@ -181,19 +205,23 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Add Student
-    fun addStudent(name: String, rollNumber: String, className: String, sectionName: String) {
+    fun addStudent(name: String, rollNumber: String, className: String, sectionName: String, fatherName: String = "", motherName: String = "") {
         executeDbAction("ADD_STUDENT") {
             val cleanClass = className.trim()
             val cleanSection = sectionName.trim()
             val cleanName = name.trim()
             val cleanRoll = rollNumber.trim()
+            val cleanFather = fatherName.trim()
+            val cleanMother = motherName.trim()
             if (cleanClass.isNotEmpty() && cleanSection.isNotEmpty() && cleanName.isNotEmpty() && cleanRoll.isNotEmpty()) {
                 repository.insertStudent(
                     Student(
                         name = cleanName,
                         rollNumber = cleanRoll,
                         className = cleanClass,
-                        sectionName = cleanSection
+                        sectionName = cleanSection,
+                        fatherName = cleanFather,
+                        motherName = cleanMother
                     )
                 )
             }
@@ -258,18 +286,49 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     // Overloaded Save student mark supporting term and specific assessment mode
     fun saveMark(studentId: Int, subject: String, termName: String, examType: String, marks: Double, maxMarks: Double = 100.0) {
+        // Enforce logical grouping: Term 1 (UT 1, 2, Term 1) & Term 2 (UT 3, 4, Term 2)
+        val finalTermName = when (examType) {
+            "UT 1", "UT 2", "Term 1" -> "Term 1"
+            "UT 3", "UT 4", "Term 2" -> "Term 2"
+            else -> termName
+        }
+
         executeDbAction("SAVE_MARK_DETAILED") {
             repository.saveMark(
                 Mark(
                     studentId = studentId,
                     subjectName = subject,
-                    termName = termName,
+                    termName = finalTermName,
                     examType = examType,
                     marksObtained = marks,
                     maxMarks = maxMarks
                 )
             )
         }
+    }
+
+    /**
+     * Calculates weighted Annual Result for a student across all subjects.
+     * Annual = (40% of Term 1 Total) + (60% of Term 2 Total)
+     */
+    suspend fun calculateAnnualResult(studentId: Int): Map<String, Double> {
+        val marks = repository.getMarksForStudent(studentId)
+        val subjects = marks.map { it.subjectName }.distinct()
+        val results = mutableMapOf<String, Double>()
+
+        for (subject in subjects) {
+            val subjectMarks = marks.filter { it.subjectName == subject }
+            
+            val t1Marks = subjectMarks.filter { it.termName == "Term 1" }
+            val t2Marks = subjectMarks.filter { it.termName == "Term 2" }
+
+            val t1Total = t1Marks.sumOf { it.marksObtained }
+            val t2Total = t2Marks.sumOf { it.marksObtained }
+
+            val annualScore = (t1Total * 0.40) + (t2Total * 0.60)
+            results[subject] = annualScore
+        }
+        return results
     }
 
     // Helper for subject choices

@@ -1,7 +1,10 @@
 package com.example.data
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.util.Log
+import androidx.core.content.FileProvider
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -274,5 +277,65 @@ object ExcelBackupHelper {
         }
             }
         }
+    }
+
+    /**
+     * Generates a clean Excel-compatible CSV for a specific class section roster.
+     */
+    fun generateClassRosterExcel(
+        context: Context,
+        className: String,
+        sectionName: String,
+        students: List<Student>
+    ): File? {
+        return try {
+            val fileName = "Roster_${className}_${sectionName}.csv".replace(" ", "_")
+            val file = File(context.getExternalFilesDir(null), fileName)
+            val fos = FileOutputStream(file)
+            val writer = OutputStreamWriter(fos, "UTF-8")
+
+            // Write BOM
+            writer.write("\uFEFF")
+
+            val headers = listOf("Roll Number", "Student Name", "Father's Name", "Mother's Name", "Class", "Section")
+            writer.write(headers.joinToString(",") { escapeCsv(it) } + "\n")
+
+            for (student in students) {
+                val row = listOf(
+                    student.rollNumber,
+                    student.name,
+                    student.fatherName,
+                    student.motherName,
+                    student.className,
+                    student.sectionName
+                )
+                writer.write(row.joinToString(",") { escapeCsv(it) } + "\n")
+            }
+
+            writer.flush()
+            writer.close()
+            file
+        } catch (e: Exception) {
+            Log.e(TAG, "Error generating roster CSV", e)
+            null
+        }
+    }
+
+    /**
+     * Launches a platform share intent for a generated file.
+     */
+    fun shareFile(context: Context, file: File) {
+        val uri: Uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            file
+        )
+
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/csv"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(intent, "Download/Share Class Roster"))
     }
 }

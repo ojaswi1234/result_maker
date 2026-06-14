@@ -35,6 +35,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.res.stringResource
+import com.example.R
 import com.example.data.Mark
 import com.example.data.Student
 import com.example.viewmodel.AppViewModel
@@ -54,14 +59,10 @@ fun MarksEntryScreen(
 
     // 1. Selector State Values
     var selectedClassSection by remember { mutableStateOf<String?>(null) }
-    var selectedTerm by remember { mutableStateOf<String?>(null) }
-    var selectedAssessmentType by remember { mutableStateOf<String?>(null) }
     var selectedSubject by remember { mutableStateOf<String?>(null) }
 
     // Dropdown expanding states
     var classExpanded by remember { mutableStateOf(false) }
-    var termExpanded by remember { mutableStateOf(false) }
-    var assessmentExpanded by remember { mutableStateOf(false) }
     var subjectExpanded by remember { mutableStateOf(false) }
 
     // Toggle whether sheet/grading list is unlocked
@@ -72,41 +73,8 @@ fun MarksEntryScreen(
         allStudents.map { "${it.className} - ${it.sectionName}" }.distinct().sorted()
     }
 
-    // Dynamic terms available
-    val termsList = listOf("Term 1", "Term 2")
-
-    // Dynamic assessment modes based on Selected Term
-    val assessmentTypeList = remember(selectedTerm) {
-        if (selectedTerm == "Term 1") {
-            listOf(
-                "Term 1 - Periodic Assessment (PA)",
-                "Term 1 - Practical",
-                "Term 1 - Internal Assessment",
-                "Term 1 - Final Term Exam"
-            )
-        } else if (selectedTerm == "Term 2") {
-            listOf(
-                "Term 2 - Periodic Assessment (PA)",
-                "Term 2 - Practical",
-                "Term 2 - Internal Assessment",
-                "Term 2 - Final Term Exam"
-            )
-        } else {
-            listOf("Periodic Assessment (PA)", "Term Exam", "Practical", "Internal Assessment")
-        }
-    }
-
     // Reset subsequent selections when previous fields change
     LaunchedEffect(selectedClassSection) {
-        selectedSubject = null
-        isGradingUnlocked = false
-    }
-    LaunchedEffect(selectedTerm) {
-        selectedAssessmentType = null
-        selectedSubject = null
-        isGradingUnlocked = false
-    }
-    LaunchedEffect(selectedAssessmentType) {
         selectedSubject = null
         isGradingUnlocked = false
     }
@@ -140,38 +108,26 @@ fun MarksEntryScreen(
         }
     }
 
-    // Determine configured max marks for current selected mode
-    val currentMaxMarks = remember(selectedClassSection, selectedAssessmentType, selectedSubject, allSectionSubjects, allExamConfigs) {
-        if (selectedClassSection == null) return@remember 100.0
+    // Helper to get max marks for a specific assessment type
+    fun getMaxMarksForAssessment(assessmentType: String): Double {
+        if (selectedClassSection == null) return 100.0
         val parts = selectedClassSection!!.split(" - ")
         val className = parts.firstOrNull() ?: ""
         val sectionName = parts.getOrNull(1) ?: ""
         val config = allExamConfigs.find { it.className == className }
-        
-        when {
-            selectedAssessmentType != null && selectedAssessmentType!!.contains("Periodic Assessment") -> {
-                if (selectedAssessmentType!!.contains("Term 1")) {
-                    config?.t1PaMaxMarks1 ?: 20.0
-                } else {
-                    config?.t2PaMaxMarks1 ?: 20.0
-                }
+
+        return when (assessmentType) {
+            "UT 1" -> config?.t1PaMaxMarks1 ?: 20.0
+            "UT 2" -> config?.t1PaMaxMarks2 ?: 20.0
+            "Term 1" -> {
+                val secSub = allSectionSubjects.find { it.className == className && it.sectionName == sectionName && it.subjectName == selectedSubject }
+                secSub?.maxMarks ?: 80.0
             }
-            selectedSubject != null -> {
-                val secSub = allSectionSubjects.find { 
-                    it.className == className && 
-                    it.sectionName == sectionName && 
-                    it.subjectName == selectedSubject 
-                }
-                if (secSub != null) {
-                    secSub.maxMarks
-                } else {
-                    val addSubRow = config?.additionalSubjectsString?.split("|")?.find { it.startsWith("$selectedSubject:") }
-                    if (addSubRow != null) {
-                        addSubRow.split(":").getOrNull(1)?.toDoubleOrNull() ?: 50.0
-                    } else {
-                        100.0
-                    }
-                }
+            "UT 3" -> config?.t2PaMaxMarks1 ?: 20.0
+            "UT 4" -> config?.t2PaMaxMarks2 ?: 20.0
+            "Term 2" -> {
+                val secSub = allSectionSubjects.find { it.className == className && it.sectionName == sectionName && it.subjectName == selectedSubject }
+                secSub?.maxMarks ?: 80.0
             }
             else -> 100.0
         }
@@ -183,10 +139,10 @@ fun MarksEntryScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Grading & Marks Input", fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.marks_entry_title), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack, modifier = Modifier.testTag("marks_back_button")) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go Back")
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.go_back))
                     }
                 },
                 actions = {
@@ -206,195 +162,138 @@ fun MarksEntryScreen(
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Icon(imageVector = Icons.Default.Shield, contentDescription = "", modifier = Modifier.size(12.dp))
-                            Text(activeRole, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = if (activeRole == "Principal/Coordinator") stringResource(R.string.coordinator) else {
+                                    when(activeRole) {
+                                        "Admin" -> stringResource(R.string.role_admin)
+                                        "Teacher" -> stringResource(R.string.role_teacher)
+                                        else -> activeRole
+                                    }
+                                },
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
             )
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(MaterialTheme.colorScheme.background)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            
-            // TRANSITION PANEL: SELECTION WORKFLOW vs ACTIVE GRADING VIEW
-            AnimatedContent(
-                targetState = isGradingUnlocked,
-                label = "FormUnlockTransition"
-            ) { unlocked ->
+        AnimatedContent(
+            targetState = isGradingUnlocked,
+            label = "FormUnlockTransition",
+            modifier = Modifier.fillMaxSize().padding(innerPadding)
+        ) { unlocked ->
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(bottom = 80.dp)
+            ) {
                 if (!unlocked) {
-                    // WORKFLOW FORM SELECTORS
-                    Column(
-                        modifier = Modifier.fillMaxWidth().verticalScroll(androidx.compose.foundation.rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        Text(
-                            text = "Step 1: Term Evaluation Parameters",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-
-                        // 1. Selector Class Dropdown
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("Select Class & Section:", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
-                            Box(modifier = Modifier.fillMaxWidth()) {
-                                OutlinedButton(
-                                    onClick = { classExpanded = true },
-                                    modifier = Modifier.fillMaxWidth().height(56.dp).testTag("workflow_class_selector"),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Row(
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.fillMaxSize()
-                                    ) {
-                                        Text(selectedClassSection ?: "Select Class", color = MaterialTheme.colorScheme.onSurface)
-                                        Icon(imageVector = Icons.Default.ArrowDropDown, contentDescription = "")
-                                    }
-                                }
-                                DropdownMenu(expanded = classExpanded, onDismissRequest = { classExpanded = false }) {
-                                    classesList.forEach { cls ->
-                                        DropdownMenuItem(
-                                            text = { Text(cls) },
-                                            onClick = {
-                                                selectedClassSection = cls
-                                                classExpanded = false
-                                            },
-                                            modifier = Modifier.testTag("menu_class_$cls")
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        // 2. Academic Term Selector
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("Select Academic Term:", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
-                            Box(modifier = Modifier.fillMaxWidth()) {
-                                OutlinedButton(
-                                    onClick = { termExpanded = true },
-                                    enabled = selectedClassSection != null,
-                                    modifier = Modifier.fillMaxWidth().height(56.dp).testTag("workflow_term_selector"),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Row(
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.fillMaxSize()
-                                    ) {
-                                        Text(selectedTerm ?: "Select Term", color = if (selectedClassSection != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline)
-                                        Icon(imageVector = Icons.Default.ArrowDropDown, contentDescription = "")
-                                    }
-                                }
-                                DropdownMenu(expanded = termExpanded, onDismissRequest = { termExpanded = false }) {
-                                    termsList.forEach { term ->
-                                        DropdownMenuItem(
-                                            text = { Text(term) },
-                                            onClick = {
-                                                selectedTerm = term
-                                                termExpanded = false
-                                            },
-                                            modifier = Modifier.testTag("menu_term_$term")
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        // 3. Assessment Type Selector (Periodic Assessment PA, Term Exam, Practical, Internal Assessment, etc.)
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("Select Assessment/Exam Type:", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
-                            Box(modifier = Modifier.fillMaxWidth()) {
-                                OutlinedButton(
-                                    onClick = { assessmentExpanded = true },
-                                    enabled = selectedTerm != null,
-                                    modifier = Modifier.fillMaxWidth().height(56.dp).testTag("workflow_assessment_selector"),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Row(
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.fillMaxSize()
-                                    ) {
-                                        Text(selectedAssessmentType ?: "Select Assessment Mode", color = if (selectedTerm != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline)
-                                        Icon(imageVector = Icons.Default.ArrowDropDown, contentDescription = "")
-                                    }
-                                }
-                                DropdownMenu(expanded = assessmentExpanded, onDismissRequest = { assessmentExpanded = false }) {
-                                    assessmentTypeList.forEach { assType ->
-                                        DropdownMenuItem(
-                                            text = { Text(assType) },
-                                            onClick = {
-                                                selectedAssessmentType = assType
-                                                assessmentExpanded = false
-                                            },
-                                            modifier = Modifier.testTag("menu_assessment_$assType")
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        // 4. Subject Selector Dropdown
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("Select Subject:", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
-                            Box(modifier = Modifier.fillMaxWidth()) {
-                                OutlinedButton(
-                                    onClick = { subjectExpanded = true },
-                                    enabled = selectedAssessmentType != null,
-                                    modifier = Modifier.fillMaxWidth().height(56.dp).testTag("workflow_subject_selector"),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Row(
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.fillMaxSize()
-                                    ) {
-                                        Text(selectedSubject ?: "Select Subject", color = if (selectedAssessmentType != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline)
-                                        Icon(imageVector = Icons.Default.ArrowDropDown, contentDescription = "")
-                                    }
-                                }
-                                DropdownMenu(expanded = subjectExpanded, onDismissRequest = { subjectExpanded = false }) {
-                                    subjectsList.forEach { sub ->
-                                        DropdownMenuItem(
-                                            text = { Text(sub) },
-                                            onClick = {
-                                                selectedSubject = sub
-                                                subjectExpanded = false
-                                            },
-                                            modifier = Modifier.testTag("menu_subject_$sub")
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // PRIMARY CTA BUTTON: “Marks Entry”
-                        val isFormComplete = selectedClassSection != null && selectedTerm != null && selectedAssessmentType != null && selectedSubject != null
-                        
-                        Button(
-                            onClick = {
-                                if (isFormComplete) {
-                                    isGradingUnlocked = true
-                                } else {
-                                    Toast.makeText(context, "Please configure all selections before starting.", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            enabled = isFormComplete,
-                            modifier = Modifier.fillMaxWidth().height(50.dp).testTag("marks_entry_cta"),
-                            shape = RoundedCornerShape(12.dp)
+                    item {
+                        // WORKFLOW FORM SELECTORS
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            Icon(imageVector = Icons.Default.Grading, contentDescription = "")
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Begin Marks Entry")
+                            Text(
+                                text = stringResource(R.string.marks_step_1),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+
+                            // 1. Selector Class Dropdown
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(stringResource(R.string.select_class_section_label), fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                                Box(modifier = Modifier.fillMaxWidth()) {
+                                    OutlinedButton(
+                                        onClick = { classExpanded = true },
+                                        modifier = Modifier.fillMaxWidth().height(56.dp).testTag("workflow_class_selector"),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Row(
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.fillMaxSize()
+                                        ) {
+                                            Text(selectedClassSection ?: stringResource(R.string.select_class_placeholder), color = MaterialTheme.colorScheme.onSurface)
+                                            Icon(imageVector = Icons.Default.ArrowDropDown, contentDescription = "")
+                                        }
+                                    }
+                                    DropdownMenu(expanded = classExpanded, onDismissRequest = { classExpanded = false }) {
+                                        classesList.forEach { cls ->
+                                            DropdownMenuItem(
+                                                text = { Text(cls) },
+                                                onClick = {
+                                                    selectedClassSection = cls
+                                                    classExpanded = false
+                                                },
+                                                modifier = Modifier.testTag("menu_class_$cls")
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 2. Subject Selector Dropdown
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(stringResource(R.string.select_subject_label), fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                                Box(modifier = Modifier.fillMaxWidth()) {
+                                    OutlinedButton(
+                                        onClick = { subjectExpanded = true },
+                                        enabled = selectedClassSection != null,
+                                        modifier = Modifier.fillMaxWidth().height(56.dp).testTag("workflow_subject_selector"),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Row(
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.fillMaxSize()
+                                        ) {
+                                            Text(selectedSubject ?: stringResource(R.string.select_subject_placeholder), color = if (selectedClassSection != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline)
+                                            Icon(imageVector = Icons.Default.ArrowDropDown, contentDescription = "")
+                                        }
+                                    }
+                                    DropdownMenu(expanded = subjectExpanded, onDismissRequest = { subjectExpanded = false }) {
+                                        subjectsList.forEach { sub ->
+                                            DropdownMenuItem(
+                                                text = { Text(sub) },
+                                                onClick = {
+                                                    selectedSubject = sub
+                                                    subjectExpanded = false
+                                                },
+                                                modifier = Modifier.testTag("menu_subject_$sub")
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // PRIMARY CTA BUTTON: “Marks Entry”
+                            val isFormComplete = selectedClassSection != null && selectedSubject != null
+                            
+                            Button(
+                                onClick = {
+                                    if (isFormComplete) {
+                                        isGradingUnlocked = true
+                                    } else {
+                                        Toast.makeText(context, context.getString(R.string.error_configure_selections), Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                enabled = isFormComplete,
+                                modifier = Modifier.fillMaxWidth().height(50.dp).testTag("marks_entry_cta"),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.Grading, contentDescription = "")
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(stringResource(R.string.begin_marks_entry))
+                            }
                         }
                     }
                 } else {
@@ -407,110 +306,88 @@ fun MarksEntryScreen(
                         it.className == className && it.sectionName == sectionName
                     }
 
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Info Header Card
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("Active Classroom Grid", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
-                                Text("$selectedClassSection • $selectedTerm", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                                Text("Exam Mode: $selectedAssessmentType", fontSize = 12.sp)
-                                Text("Subject: $selectedSubject (Out of ${currentMaxMarks.toInt()})", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-
-                        // Auto-Save / Save preference controls
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(
-                                    checked = isAutoSaveEnabled,
-                                    onCheckedChange = { isAutoSaveEnabled = it },
-                                    modifier = Modifier.testTag("auto_save_toggle")
-                                )
-                                Text("Enable Auto-Save", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            // Info Header Card
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(stringResource(R.string.active_classroom_grid), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
+                                    Text("$selectedClassSection", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                    Text(stringResource(R.string.subjects) + ": $selectedSubject", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
 
-                            TextButton(
-                                onClick = { isGradingUnlocked = false },
-                                modifier = Modifier.testTag("back_to_selectors")
+                            // Auto-Save / Save preference controls
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "", modifier = Modifier.size(14.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Refine Selections")
+                                    Checkbox(
+                                        checked = isAutoSaveEnabled,
+                                        onCheckedChange = { isAutoSaveEnabled = it },
+                                        modifier = Modifier.testTag("auto_save_toggle")
+                                    )
+                                    Text(stringResource(R.string.enable_auto_save), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                }
+
+                                TextButton(
+                                    onClick = { isGradingUnlocked = false },
+                                    modifier = Modifier.testTag("back_to_selectors")
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "", modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(stringResource(R.string.refine_selections))
+                                    }
                                 }
                             }
                         }
+                    }
 
-                        // Warning banner for Coordinator
-                        if (activeRole == "Principal/Coordinator") {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f))
-                                    .padding(8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Icon(imageVector = Icons.Default.Shield, contentDescription = "", tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(16.dp))
-                                Text("Read-Only: Coordinator Role cannot enter/modify marks.", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    // Student score rows list
+                    if (filteredStudents.isEmpty()) {
+                        item {
+                            Box(modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) {
+                                Text(stringResource(R.string.no_students_enrolled))
                             }
                         }
-
-                        // Student score rows list
-                        if (filteredStudents.isEmpty()) {
-                            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                                Text("No students currently enrolled in this classroom.")
+                    } else {
+                        items(filteredStudents, key = { it.id }) { student ->
+                            val studentMarks = allMarks.filter {
+                                it.studentId == student.id && it.subjectName == selectedSubject
                             }
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier.weight(1f).fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                items(filteredStudents, key = { it.id }) { student ->
-                                    val currentMark = allMarks.find {
-                                        it.studentId == student.id &&
-                                        it.subjectName == selectedSubject &&
-                                        it.termName == selectedTerm &&
-                                        it.examType == selectedAssessmentType
-                                    }
 
-                                    StudentMarkInputRow(
-                                        student = student,
-                                        currentMark = currentMark,
-                                        maxMarks = currentMaxMarks,
-                                        isAutoSave = isAutoSaveEnabled,
-                                        isReadOnly = activeRole == "Principal/Coordinator",
-                                        onSaveMark = { markVal ->
-                                            viewModel.saveMark(
-                                                studentId = student.id,
-                                                subject = selectedSubject!!,
-                                                termName = selectedTerm!!,
-                                                examType = selectedAssessmentType!!,
-                                                marks = markVal,
-                                                maxMarks = currentMaxMarks
-                                            )
-                                        }
+                            StudentTermMarksEntry(
+                                student = student,
+                                studentMarks = studentMarks,
+                                isAutoSave = isAutoSaveEnabled,
+                                isReadOnly = activeRole == "Principal/Coordinator",
+                                getMaxMarks = { type -> getMaxMarksForAssessment(type) },
+                                onSaveMark = { type, term, markVal, max ->
+                                    viewModel.saveMark(
+                                        studentId = student.id,
+                                        subject = selectedSubject!!,
+                                        termName = term,
+                                        examType = type,
+                                        marks = markVal,
+                                        maxMarks = max
                                     )
                                 }
-                            }
+                            )
                         }
+                    }
 
-                        // Manual save button if Auto save is off
-                        if (!isAutoSaveEnabled && activeRole != "Principal/Coordinator") {
+                    // Manual save button if Auto save is off
+                    if (!isAutoSaveEnabled && activeRole != "Principal/Coordinator") {
+                        item {
                             Button(
                                 onClick = {
-                                    Toast.makeText(context, "All entered marks cached and recorded!", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.marks_saved_toast), Toast.LENGTH_SHORT).show()
                                     isGradingUnlocked = false
                                 },
                                 modifier = Modifier.fillMaxWidth().height(50.dp).testTag("save_all_marks_btn"),
@@ -518,7 +395,7 @@ fun MarksEntryScreen(
                             ) {
                                 Icon(imageVector = Icons.Default.Save, contentDescription = "")
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Save Current Transcript")
+                                Text(stringResource(R.string.save_current_transcript))
                             }
                         }
                     }
@@ -529,151 +406,228 @@ fun MarksEntryScreen(
 }
 
 @Composable
-fun StudentMarkInputRow(
+fun StudentTermMarksEntry(
     student: Student,
+    studentMarks: List<Mark>,
+    isAutoSave: Boolean,
+    isReadOnly: Boolean,
+    getMaxMarks: (String) -> Double,
+    onSaveMark: (String, String, Double, Double) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // Student Name Header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = student.rollNumber,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = student.name,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Term 1 Card
+            TermCard(
+                modifier = Modifier.weight(1f),
+                title = stringResource(R.string.term_1),
+                assessmentTypes = listOf("UT 1", "UT 2", "Term 1"),
+                studentMarks = studentMarks,
+                isAutoSave = isAutoSave,
+                isReadOnly = isReadOnly,
+                getMaxMarks = getMaxMarks,
+                onSaveMark = { type, mark -> onSaveMark(type, "Term 1", mark, getMaxMarks(type)) }
+            )
+
+            // Term 2 Card
+            TermCard(
+                modifier = Modifier.weight(1f),
+                title = stringResource(R.string.term_2),
+                assessmentTypes = listOf("UT 3", "UT 4", "Term 2"),
+                studentMarks = studentMarks,
+                isAutoSave = isAutoSave,
+                isReadOnly = isReadOnly,
+                getMaxMarks = getMaxMarks,
+                onSaveMark = { type, mark -> onSaveMark(type, "Term 2", mark, getMaxMarks(type)) }
+            )
+        }
+    }
+}
+
+@Composable
+fun TermCard(
+    modifier: Modifier = Modifier,
+    title: String,
+    assessmentTypes: List<String>,
+    studentMarks: List<Mark>,
+    isAutoSave: Boolean,
+    isReadOnly: Boolean,
+    getMaxMarks: (String) -> Double,
+    onSaveMark: (String, Double) -> Unit
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+    ) {
+        Column(
+            modifier = Modifier.padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = title,
+                fontWeight = FontWeight.Bold,
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+
+            assessmentTypes.forEach { type ->
+                val currentMark = studentMarks.find { it.examType == type }
+                val max = getMaxMarks(type)
+                
+                AssessmentInputField(
+                    label = type,
+                    currentMark = currentMark,
+                    maxMarks = max,
+                    isAutoSave = isAutoSave,
+                    isReadOnly = isReadOnly,
+                    onSave = { onSaveMark(type, it) }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AssessmentInputField(
+    label: String,
     currentMark: Mark?,
     maxMarks: Double,
     isAutoSave: Boolean,
     isReadOnly: Boolean,
-    onSaveMark: (Double) -> Unit
+    onSave: (Double) -> Unit
 ) {
-    var textValue by remember(student.id, currentMark) {
+    // Local state for smooth typing
+    var textValue by remember { mutableStateOf("") }
+    
+    // Initial sync with database value
+    LaunchedEffect(currentMark) {
         val score = currentMark?.marksObtained
-        mutableStateOf(if (score != null) {
+        val currentStr = if (score != null) {
             if (score % 1.0 == 0.0) score.toInt().toString() else score.toString()
-        } else "")
+        } else ""
+        
+        // Only update local state if it's currently empty and external state is not,
+        // or if external state changes significantly while not in focus (simplified here)
+        if (textValue.isEmpty() && currentStr.isNotEmpty()) {
+            textValue = currentStr
+        }
     }
 
     var isError by remember { mutableStateOf(false) }
-    var isSavedState by remember(currentMark) { mutableStateOf(currentMark != null) }
 
-    val validateAndSave = { inputStr: String ->
-        if (inputStr.isEmpty()) {
-            isError = false
-        } else {
-            val potentialDouble = inputStr.toDoubleOrNull()
-            if (potentialDouble != null && potentialDouble >= 0.0 && potentialDouble <= maxMarks) {
-                isError = false
-                if (isAutoSave) {
-                    isSavedState = true
-                    onSaveMark(potentialDouble)
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(text = stringResource(R.string.assessment_max_format, label, maxMarks.toInt()), fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+        
+        val interactionSource = remember { MutableInteractionSource() }
+        BasicTextField(
+            value = textValue,
+            onValueChange = { newValue ->
+                if (!isReadOnly && newValue.length <= 5) {
+                    textValue = newValue
+                    val potentialDouble = newValue.toDoubleOrNull()
+                    if (newValue.isEmpty()) {
+                        isError = false
+                    } else if (potentialDouble != null && potentialDouble >= 0.0 && potentialDouble <= maxMarks) {
+                        isError = false
+                        if (isAutoSave) onSave(potentialDouble)
+                    } else {
+                        isError = true
+                    }
                 }
-            } else {
-                isError = true
-            }
-        }
-    }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag("mark_row_${student.id}"),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        border = BorderStroke(
-            width = 1.dp,
-            color = if (isError) {
-                MaterialTheme.colorScheme.error
-            } else if (isSavedState) {
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-            } else {
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-            }
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(modifier = Modifier.weight(1.5f)) {
-                Text(
-                    text = student.name,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "Roll ID: " + student.rollNumber,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Row(
-                modifier = Modifier.weight(1.2f),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Inline Input Textfield
-                OutlinedTextField(
+            },
+            readOnly = isReadOnly,
+            modifier = Modifier.fillMaxWidth().height(44.dp),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            textStyle = LocalTextStyle.current.copy(
+                color = MaterialTheme.colorScheme.onSurface, 
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            ),
+            singleLine = true,
+            interactionSource = interactionSource,
+            decorationBox = @Composable { innerTextField ->
+                OutlinedTextFieldDefaults.DecorationBox(
                     value = textValue,
-                    onValueChange = { newValue ->
-                        if (!isReadOnly && newValue.length <= 5) {
-                            textValue = newValue
-                            validateAndSave(newValue)
+                    innerTextField = innerTextField,
+                    enabled = !isReadOnly,
+                    singleLine = true,
+                    visualTransformation = VisualTransformation.None,
+                    interactionSource = interactionSource,
+                    isError = isError,
+                    trailingIcon = {
+                        if (currentMark != null && !isError) {
+                            Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
                         }
                     },
-                    readOnly = isReadOnly,
-                    enabled = !isReadOnly,
-                    modifier = Modifier
-                        .width(82.dp)
-                        .height(52.dp)
-                        .testTag("student_mark_input_${student.id}"),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    placeholder = { Text("0-${maxMarks.toInt()}", fontSize = 11.sp) },
-                    shape = RoundedCornerShape(8.dp),
-                    singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.1f)
-                    )
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                        errorContainerColor = Color.White
+                    ),
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                    container = {
+                        OutlinedTextFieldDefaults.Container(
+                            enabled = !isReadOnly,
+                            isError = isError,
+                            interactionSource = interactionSource,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                focusedContainerColor = Color.White,
+                                unfocusedContainerColor = Color.White,
+                                errorContainerColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                    }
                 )
-
-                // Save button if not AutoSave
-                if (!isAutoSave && !isReadOnly) {
-                    IconButton(
-                        onClick = {
-                            val potentialDouble = textValue.toDoubleOrNull()
-                            if (potentialDouble != null && potentialDouble >= 0.0 && potentialDouble <= maxMarks) {
-                                isError = false
-                                isSavedState = true
-                                onSaveMark(potentialDouble)
-                            } else {
-                                isError = true
-                            }
-                        },
-                        modifier = Modifier
-                            .size(34.dp)
-                            .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
-                    ) {
-                        Icon(imageVector = Icons.Default.Save, contentDescription = "", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                    }
-                }
-
-                // Status Indicator Icon
-                Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                    if (isError) {
-                        Icon(
-                            imageVector = Icons.Default.ErrorOutline,
-                            contentDescription = "Error",
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    } else if (isSavedState) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = "Saved",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
             }
-        }
+        )
     }
 }

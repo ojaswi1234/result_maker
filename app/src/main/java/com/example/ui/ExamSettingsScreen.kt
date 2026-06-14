@@ -6,6 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -172,7 +174,7 @@ fun ExamSettingsScreen(
             )
         }
     ) { innerPadding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
@@ -180,84 +182,80 @@ fun ExamSettingsScreen(
         ) {
             if (selectedClass == null) {
                 // SCREEN 1: Available Classes list layout
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                    color = Color.White,
-                    border = BorderStroke(1.dp, Color(0xFFCCCCCC))
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = "Available Classes",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 17.sp,
-                            color = Color.Black
-                        )
+                item {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        color = Color.White,
+                        border = BorderStroke(1.dp, Color(0xFFCCCCCC))
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = "Available Classes",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 17.sp,
+                                color = Color.Black
+                            )
+                        }
                     }
                 }
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
-                ) {
-                    classesList.forEach { className ->
-                        Card(
+                items(classesList) { className ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                            .clickable { selectedClass = className }
+                            .testTag("class_tile_$className"),
+                        shape = RoundedCornerShape(0.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        border = BorderStroke(0.5.dp, Color(0xFFDDDDDD))
+                    ) {
+                        Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp)
-                                .clickable { selectedClass = className }
-                                .testTag("class_tile_$className"),
-                            shape = RoundedCornerShape(0.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            border = BorderStroke(0.5.dp, Color(0xFFDDDDDD))
+                                .fillMaxSize()
+                                .padding(horizontal = 16.dp),
+                            contentAlignment = Alignment.CenterStart
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 16.dp),
-                                contentAlignment = Alignment.CenterStart
-                            ) {
-                                Text(
-                                    text = className,
-                                    fontSize = 17.sp,
-                                    color = Color.Black,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
+                            Text(
+                                text = className,
+                                fontSize = 17.sp,
+                                color = Color.Black,
+                                fontWeight = FontWeight.Medium
+                            )
                         }
                     }
                 }
             } else {
                 // SCREEN 2: Combined Settings details page
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp),
-                    color = Color.White,
-                    border = BorderStroke(1.dp, Color(0xFF999999))
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = "Settings of $selectedClass",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            color = Color(0xFF444444)
-                        )
-                    }
-                }
+                item {
+                    Column {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp),
+                            color = Color.White,
+                            border = BorderStroke(1.dp, Color(0xFF999999))
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = "Settings of $selectedClass",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = Color(0xFF444444)
+                                )
+                            }
+                        }
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .verticalScroll(rememberScrollState())
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    // CHECKBOXES TABLE
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            // CHECKBOXES TABLE
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -988,6 +986,8 @@ fun ExamSettingsScreen(
                             fontWeight = FontWeight.Bold
                         )
                     }
+                }
+                }
                 }
             }
         }
