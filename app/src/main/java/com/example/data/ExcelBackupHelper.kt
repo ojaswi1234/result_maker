@@ -1,10 +1,16 @@
 package com.example.data
 
+import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Environment
 import android.util.Log
 import androidx.core.content.FileProvider
+import jxl.Workbook
+import jxl.WorkbookSettings
+import jxl.write.Label
+import jxl.write.WritableWorkbook
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -280,7 +286,7 @@ object ExcelBackupHelper {
     }
 
     /**
-     * Generates a clean Excel-compatible CSV for a specific class section roster.
+     * Generates a true Microsoft Excel (.xls) file for a specific class section roster.
      */
     fun generateClassRosterExcel(
         context: Context,
@@ -289,35 +295,62 @@ object ExcelBackupHelper {
         students: List<Student>
     ): File? {
         return try {
-            val fileName = "Roster_${className}_${sectionName}.csv".replace(" ", "_")
+            val fileName = "Roster_${className}_${sectionName}.xls".replace(" ", "_")
             val file = File(context.getExternalFilesDir(null), fileName)
-            val fos = FileOutputStream(file)
-            val writer = OutputStreamWriter(fos, "UTF-8")
-
-            // Write BOM
-            writer.write("\uFEFF")
+            
+            val wbSettings = WorkbookSettings()
+            wbSettings.locale = Locale.getDefault()
+            
+            val workbook: WritableWorkbook = Workbook.createWorkbook(file, wbSettings)
+            val sheet = workbook.createSheet("Class Roster", 0)
 
             val headers = listOf("Roll Number", "Student Name", "Father's Name", "Mother's Name", "Class", "Section")
-            writer.write(headers.joinToString(",") { escapeCsv(it) } + "\n")
-
-            for (student in students) {
-                val row = listOf(
-                    student.rollNumber,
-                    student.name,
-                    student.fatherName,
-                    student.motherName,
-                    student.className,
-                    student.sectionName
-                )
-                writer.write(row.joinToString(",") { escapeCsv(it) } + "\n")
+            headers.forEachIndexed { index, header ->
+                sheet.addCell(Label(index, 0, header))
             }
 
-            writer.flush()
-            writer.close()
+            students.forEachIndexed { rowIndex, student ->
+                sheet.addCell(Label(0, rowIndex + 1, student.rollNumber))
+                sheet.addCell(Label(1, rowIndex + 1, student.name))
+                sheet.addCell(Label(2, rowIndex + 1, student.fatherName))
+                sheet.addCell(Label(3, rowIndex + 1, student.motherName))
+                sheet.addCell(Label(4, rowIndex + 1, student.className))
+                sheet.addCell(Label(5, rowIndex + 1, student.sectionName))
+            }
+
+            workbook.write()
+            workbook.close()
             file
         } catch (e: Exception) {
-            Log.e(TAG, "Error generating roster CSV", e)
+            Log.e(TAG, "Error generating roster Excel", e)
             null
+        }
+    }
+
+    /**
+     * Downloads a file directly to the device's public Downloads folder.
+     */
+    fun downloadFile(context: Context, file: File) {
+        try {
+            val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            
+            // For true "download" experience, we move the file to a public directory
+            // or use DownloadManager to "add" it to the system downloads.
+            // On modern Android, we can trigger a system download notification by using addCompletedDownload.
+            
+            downloadManager.addCompletedDownload(
+                file.name,
+                "Class Roster for ${file.name.substringAfter("_").substringBefore(".xls")}",
+                true,
+                "application/vnd.ms-excel",
+                file.absolutePath,
+                file.length(),
+                true
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Error triggering direct download", e)
+            // Fallback to share if direct download fails
+            shareFile(context, file)
         }
     }
 
@@ -332,7 +365,7 @@ object ExcelBackupHelper {
         )
 
         val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/csv"
+            type = if (file.name.endsWith(".xls")) "application/vnd.ms-excel" else "text/csv"
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }

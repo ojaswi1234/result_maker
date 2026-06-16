@@ -40,6 +40,8 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import java.io.ByteArrayOutputStream
 import androidx.compose.ui.res.stringResource
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import com.example.R
 import com.example.data.SchoolSetting
 import com.example.viewmodel.AppViewModel
@@ -62,13 +64,31 @@ fun MainDashboardScreen(
     val activeRole by viewModel.activeRole.collectAsState()
     var showEditDialog by remember { mutableStateOf(false) }
 
+    val guestAccountText = stringResource(R.string.guest_account)
     val userEmail = when (val auth = authState) {
         is AuthState.Authenticated -> auth.email
-        else -> "Guest Account"
+        else -> guestAccountText
     }
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    
+    // Observe configuration changes to trigger recomposition when locale changes
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val currentLocale = remember(configuration) {
+        AppCompatDelegate.getApplicationLocales().toLanguageTags().ifEmpty { "en" }
+    }
+    
+    val languages = listOf(
+        "en" to "English",
+        "hi" to "हिन्दी (Hindi)",
+        "es" to "Español"
+    )
+    
+    var expanded by remember { mutableStateOf(false) }
+    val currentLangName = remember(currentLocale) {
+        languages.find { it.first == currentLocale }?.second ?: "English"
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -82,7 +102,7 @@ fun MainDashboardScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = stringResource(R.string.school_name_default),
+                        text = schoolSetting.schoolName,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
                         color = MaterialTheme.colorScheme.primary
@@ -99,7 +119,7 @@ fun MainDashboardScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     
-                    Divider(modifier = Modifier.padding(vertical = 4.dp))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                     
                     // ROLE SIMULATOR ROW SELECTORS
                     Text(
@@ -147,7 +167,7 @@ fun MainDashboardScreen(
                     }
                 }
                 
-                Divider()
+                HorizontalDivider()
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // DRAWER ITEMS - ONLY ONE MAIN FUNCTION BUTTON: Exam setting
@@ -164,7 +184,7 @@ fun MainDashboardScreen(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("drawer_exam_setting_button")
                 )
 
-                Divider(modifier = Modifier.padding(vertical = 12.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
                 
                 // LANGUAGE SWITCHER SECTION
                 Column(modifier = Modifier.padding(horizontal = 20.dp)) {
@@ -180,25 +200,11 @@ fun MainDashboardScreen(
                     }
                     
                     Spacer(modifier = Modifier.height(8.dp))
-                    
-                    val currentLocale = AppCompatDelegate.getApplicationLocales().toLanguageTags()
-                    val languages = listOf(
-                        "en" to "English",
-                        "hi" to "हिन्दी (Hindi)",
-                        "es" to "Español",
-                        "te" to "తెలుగు",
-                        "ta" to "தமிழ்",
-                        "bn" to "বাংলা",
-                        "mr" to "मराठी"
-                    )
-                    
-                    var expanded by remember { mutableStateOf(false) }
-                    val currentLangName = languages.find { it.first == currentLocale }?.second ?: "English"
 
                     Box {
                         OutlinedButton(
                             onClick = { expanded = true },
-                            modifier = Modifier.fillMaxWidth().height(40.dp),
+                            modifier = Modifier.fillMaxWidth().wrapContentHeight().padding(vertical = 4.dp),
                             shape = RoundedCornerShape(8.dp),
                             contentPadding = PaddingValues(horizontal = 12.dp)
                         ) {
@@ -394,7 +400,7 @@ fun MainDashboardScreen(
                                 if (logoBitmap != null) {
                                     Image(
                                         bitmap = logoBitmap,
-                                        contentDescription = "School Logo",
+                                        contentDescription = stringResource(R.string.school_logo),
                                         modifier = Modifier.fillMaxSize().padding(4.dp),
                                         contentScale = ContentScale.Fit
                                     )
@@ -479,7 +485,7 @@ fun MainDashboardScreen(
             ) {
                 Icon(
                     imageVector = Icons.Default.Person,
-                    contentDescription = "Active user",
+                    contentDescription = stringResource(R.string.active_user),
                     tint = MaterialTheme.colorScheme.outline,
                     modifier = Modifier.size(16.dp)
                 )
@@ -579,7 +585,7 @@ fun DashboardModuleCard(
     ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
-            .height(150.dp)
+            .aspectRatio(1.1f)
             .border(
                 width = 1.dp,
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
@@ -596,7 +602,7 @@ fun DashboardModuleCard(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+            verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)
         ) {
             Box(
                 modifier = Modifier

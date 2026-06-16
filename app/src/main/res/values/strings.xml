@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Result Maker</string>
+    <string name="app_name">Navodhya Result Maker</string>
     <string name="school_name_default">Global Academy</string>
     <string name="signed_in_context">Signed in context:</string>
     <string name="simulate_role_context">Simulate Role Context:</string>
@@ -138,4 +138,14 @@
     <string name="scholar_id_label">Scholar ID</string>
     <string name="class_level_label">Class/Level</string>
     <string name="roster_section_label">Roster Section</string>
+    <string name="guest_account">Guest Account</string>
+    <string name="school_logo">School Logo</string>
+    <string name="active_user">Active User</string>
+    <string name="ma_multiple_assessment">MA / Multiple Assessment</string>
+    <string name="notebook_submission">Notebook Submission</string>
+    <string name="subject_enrichment_project">Subject Enrichment / Project</string>
+    <string name="pa_weightage">PA Weightage</string>
+    <string name="pa_term_1">PA Term-1</string>
+    <string name="pa_term_2">PA Term-2</string>
+    <string name="max_marks_pa1">Max Marks in PA1</string>
 </resources>

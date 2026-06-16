@@ -288,8 +288,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun saveMark(studentId: Int, subject: String, termName: String, examType: String, marks: Double, maxMarks: Double = 100.0) {
         // Enforce logical grouping: Term 1 (UT 1, 2, Term 1) & Term 2 (UT 3, 4, Term 2)
         val finalTermName = when (examType) {
-            "UT 1", "UT 2", "Term 1" -> "Term 1"
-            "UT 3", "UT 4", "Term 2" -> "Term 2"
+            "UT1", "UT2", "Half Yearly", "Term 1 Internal" -> "Term 1"
+            "UT3", "UT4", "Annual Exam", "Term 2 Internal" -> "Term 2"
             else -> termName
         }
 
@@ -304,6 +304,33 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     maxMarks = maxMarks
                 )
             )
+        }
+    }
+
+    /**
+     * Batch updates marks for all students in a specific class section for a given test type and subject.
+     */
+    fun batchUpdateMarks(className: String, sectionName: String, subjectName: String, examType: String, newValue: String, maxMarks: Double = 100.0) {
+        val marksValue = newValue.toDoubleOrNull() ?: return
+        executeDbAction("BATCH_UPDATE_MARKS") {
+            val students = repository.getStudentsForSection(className, sectionName)
+            val termName = when (examType) {
+                "UT1", "UT2", "Half Yearly", "Term 1 Internal" -> "Term 1"
+                "UT3", "UT4", "Annual Exam", "Term 2 Internal" -> "Term 2"
+                else -> "Term 1"
+            }
+            students.forEach { student ->
+                repository.saveMark(
+                    Mark(
+                        studentId = student.id,
+                        subjectName = subjectName,
+                        termName = termName,
+                        examType = examType,
+                        marksObtained = marksValue,
+                        maxMarks = maxMarks
+                    )
+                )
+            }
         }
     }
 
@@ -377,10 +404,47 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
     }
-
+    // Delete Section Subject
     fun deleteSectionSubject(className: String, sectionName: String, subjectName: String) {
         executeDbAction("DELETE_SECTION_SUBJECT") {
             repository.deleteSectionSubjectByKeys(className.trim(), sectionName.trim(), subjectName.trim())
+        }
+    }
+
+    /**
+     * Retrieves the marks for a specific student, subject, and exam type.
+     */
+    fun getMarksForExam(studentId: Int, subjectName: String, examType: String): Double? {
+        val marks = allMarks.value
+        return marks.find { 
+            it.studentId == studentId && 
+            it.subjectName == subjectName && 
+            it.examType == examType 
+        }?.marksObtained
+    }
+
+    /**
+     * Updates marks for a specific student, subject, and exam type.
+     */
+    fun updateMarksForExam(studentId: Int, subjectName: String, examType: String, newValue: String, maxMarks: Double = 100.0) {
+        val marksValue = newValue.toDoubleOrNull() ?: return
+        val termName = when (examType) {
+            "UT1", "UT2", "Half Yearly", "Term 1 Internal" -> "Term 1"
+            "UT3", "UT4", "Annual Exam", "Term 2 Internal" -> "Term 2"
+            else -> "Term 1"
+        }
+
+        executeDbAction("UPDATE_MARK_SINGLE") {
+            repository.saveMark(
+                Mark(
+                    studentId = studentId,
+                    subjectName = subjectName,
+                    termName = termName,
+                    examType = examType,
+                    marksObtained = marksValue,
+                    maxMarks = maxMarks
+                )
+            )
         }
     }
 }

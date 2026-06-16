@@ -31,6 +31,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
+import com.example.R
 import com.example.data.ExamConfig
 import com.example.viewmodel.AppViewModel
 
@@ -186,11 +188,12 @@ fun ExamSettingsScreen(
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp),
+                            .wrapContentHeight()
+                            .padding(vertical = 12.dp),
                         color = Color.White,
                         border = BorderStroke(1.dp, Color(0xFFCCCCCC))
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
+                        Box(modifier = Modifier.padding(8.dp), contentAlignment = Alignment.Center) {
                             Text(
                                 text = "Available Classes",
                                 fontWeight = FontWeight.Bold,
@@ -205,7 +208,7 @@ fun ExamSettingsScreen(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(56.dp)
+                            .wrapContentHeight()
                             .padding(horizontal = 12.dp, vertical = 4.dp)
                             .clickable { selectedClass = className }
                             .testTag("class_tile_$className"),
@@ -215,8 +218,8 @@ fun ExamSettingsScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 16.dp),
+                                .fillMaxWidth()
+                                .padding(16.dp),
                             contentAlignment = Alignment.CenterStart
                         ) {
                             Text(
@@ -235,11 +238,12 @@ fun ExamSettingsScreen(
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(44.dp),
+                                .wrapContentHeight()
+                                .padding(vertical = 12.dp),
                             color = Color.White,
                             border = BorderStroke(1.dp, Color(0xFF999999))
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
+                            Box(modifier = Modifier.padding(8.dp), contentAlignment = Alignment.Center) {
                                 Text(
                                     text = "Settings of $selectedClass",
                                     fontWeight = FontWeight.Bold,
@@ -266,7 +270,8 @@ fun ExamSettingsScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(48.dp),
+                                .wrapContentHeight()
+                                .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(
@@ -280,7 +285,7 @@ fun ExamSettingsScreen(
                                     checked = hasMultipleAssessment,
                                     onCheckedChange = { hasMultipleAssessment = it }
                                 )
-                                Text("MA / Multiple Assessment", fontSize = 13.sp, color = Color.Black, fontWeight = FontWeight.Medium)
+                                Text(stringResource(R.string.ma_multiple_assessment), fontSize = 13.sp, color = Color.Black, fontWeight = FontWeight.Medium)
                             }
                             Box(modifier = Modifier.width(1.dp).fillMaxHeight().background(Color(0xFF7A7D81)))
                             Box(
@@ -316,13 +321,14 @@ fun ExamSettingsScreen(
                                 }
                             }
                         }
-                        Divider(color = Color(0xFF7A7D81), thickness = 1.dp)
+                        HorizontalDivider(color = Color(0xFF7A7D81), thickness = 1.dp)
 
                         // ROW 2: Notebook
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(48.dp),
+                                .wrapContentHeight()
+                                .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(
@@ -336,7 +342,7 @@ fun ExamSettingsScreen(
                                     checked = hasNotebookSubmission,
                                     onCheckedChange = { hasNotebookSubmission = it }
                                 )
-                                Text("Notebook Submission", fontSize = 13.sp, color = Color.Black, fontWeight = FontWeight.Medium)
+                                Text(stringResource(R.string.notebook_submission), fontSize = 13.sp, color = Color.Black, fontWeight = FontWeight.Medium)
                             }
                             Box(modifier = Modifier.width(1.dp).fillMaxHeight().background(Color(0xFF7A7D81)))
                             Box(
@@ -372,13 +378,14 @@ fun ExamSettingsScreen(
                                 }
                             }
                         }
-                        Divider(color = Color(0xFF7A7D81), thickness = 1.dp)
+                        HorizontalDivider(color = Color(0xFF7A7D81), thickness = 1.dp)
 
                         // ROW 3: Subject Enrichment
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(48.dp),
+                                .wrapContentHeight()
+                                .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(
@@ -392,7 +399,7 @@ fun ExamSettingsScreen(
                                     checked = hasSubjectEnrichment,
                                     onCheckedChange = { hasSubjectEnrichment = it }
                                 )
-                                Text("Subject Enrichment / Project", fontSize = 13.sp, color = Color.Black, fontWeight = FontWeight.Medium)
+                                Text(stringResource(R.string.subject_enrichment_project), fontSize = 13.sp, color = Color.Black, fontWeight = FontWeight.Medium)
                             }
                             Box(modifier = Modifier.width(1.dp).fillMaxHeight().background(Color(0xFF7A7D81)))
                             Box(
@@ -428,13 +435,14 @@ fun ExamSettingsScreen(
                                 }
                             }
                         }
-                        Divider(color = Color(0xFF7A7D81), thickness = 1.dp)
+                        HorizontalDivider(color = Color(0xFF7A7D81), thickness = 1.dp)
 
                         // ROW 4: PA Weightage
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(48.dp),
+                                .wrapContentHeight()
+                                .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(
@@ -448,7 +456,7 @@ fun ExamSettingsScreen(
                                     checked = hasPaWeightage,
                                     onCheckedChange = { hasPaWeightage = it }
                                 )
-                                Text("PA Weightage", fontSize = 13.sp, color = Color.Black, fontWeight = FontWeight.Medium)
+                                Text(stringResource(R.string.pa_weightage), fontSize = 13.sp, color = Color.Black, fontWeight = FontWeight.Medium)
                             }
                             Box(modifier = Modifier.width(1.dp).fillMaxHeight().background(Color(0xFF7A7D81)))
                             Box(
@@ -497,16 +505,17 @@ fun ExamSettingsScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(36.dp)
-                                .background(Color.White),
+                                .wrapContentHeight()
+                                .background(Color.White)
+                                .padding(vertical = 8.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("PA Term-1", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.Black)
+                            Text(stringResource(R.string.pa_term_1), fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.Black)
                         }
-                        Divider(color = Color(0xFF7A7D81), thickness = 1.dp)
+                        HorizontalDivider(color = Color(0xFF7A7D81), thickness = 1.dp)
 
                         // Number of PA
-                        Row(modifier = Modifier.fillMaxWidth().height(42.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth().wrapContentHeight().padding(vertical = 4.dp)) {
                             Box(
                                 modifier = Modifier
                                     .weight(0.6f)
@@ -539,10 +548,10 @@ fun ExamSettingsScreen(
                                 )
                             }
                         }
-                        Divider(color = Color(0xFF7A7D81), thickness = 1.dp)
+                        HorizontalDivider(color = Color(0xFF7A7D81), thickness = 1.dp)
 
                         // Max Marks PA1
-                        Row(modifier = Modifier.fillMaxWidth().height(38.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth().wrapContentHeight().padding(vertical = 4.dp)) {
                             Box(
                                 modifier = Modifier
                                     .weight(0.6f)
@@ -551,7 +560,7 @@ fun ExamSettingsScreen(
                                     .padding(start = 12.dp),
                                 contentAlignment = Alignment.CenterStart
                             ) {
-                                Text("Max Marks in PA1", color = Color(0xFF222222), fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                Text(stringResource(R.string.max_marks_pa1), color = Color(0xFF222222), fontSize = 13.sp, fontWeight = FontWeight.Medium)
                             }
                             Box(modifier = Modifier.width(1.dp).fillMaxHeight().background(Color(0xFF7A7D81)))
                             Box(
@@ -570,14 +579,15 @@ fun ExamSettingsScreen(
                                 )
                             }
                         }
-                        Divider(color = Color(0xFF7A7D81), thickness = 1.dp)
+                        HorizontalDivider(color = Color(0xFF7A7D81), thickness = 1.dp)
 
                         // Max Marks PA2
                         val hasPA2 = t1CountInt >= 2
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(38.dp)
+                                .wrapContentHeight()
+                                .padding(vertical = 4.dp)
                         ) {
                             Box(
                                 modifier = Modifier
@@ -617,14 +627,15 @@ fun ExamSettingsScreen(
                                 )
                             }
                         }
-                        Divider(color = Color(0xFF7A7D81), thickness = 1.dp)
+                        HorizontalDivider(color = Color(0xFF7A7D81), thickness = 1.dp)
 
                         // Max Marks PA3
                         val hasPA3 = t1CountInt >= 3
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(38.dp)
+                                .wrapContentHeight()
+                                .padding(vertical = 4.dp)
                         ) {
                             Box(
                                 modifier = Modifier
@@ -677,16 +688,17 @@ fun ExamSettingsScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(36.dp)
-                                .background(Color.White),
+                                .wrapContentHeight()
+                                .background(Color.White)
+                                .padding(vertical = 8.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("PA Term-2", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.Black)
+                            Text(stringResource(R.string.pa_term_2), fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.Black)
                         }
-                        Divider(color = Color(0xFF7A7D81), thickness = 1.dp)
+                        HorizontalDivider(color = Color(0xFF7A7D81), thickness = 1.dp)
 
                         // Number of PA
-                        Row(modifier = Modifier.fillMaxWidth().height(42.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth().wrapContentHeight().padding(vertical = 4.dp)) {
                             Box(
                                 modifier = Modifier
                                     .weight(0.6f)
@@ -719,10 +731,10 @@ fun ExamSettingsScreen(
                                 )
                             }
                         }
-                        Divider(color = Color(0xFF7A7D81), thickness = 1.dp)
+                        HorizontalDivider(color = Color(0xFF7A7D81), thickness = 1.dp)
 
                         // Max Marks PA1
-                        Row(modifier = Modifier.fillMaxWidth().height(38.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth().wrapContentHeight().padding(vertical = 4.dp)) {
                             Box(
                                 modifier = Modifier
                                     .weight(0.6f)
@@ -731,7 +743,7 @@ fun ExamSettingsScreen(
                                     .padding(start = 12.dp),
                                 contentAlignment = Alignment.CenterStart
                             ) {
-                                Text("Max Marks in PA1", color = Color(0xFF222222), fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                Text(stringResource(R.string.max_marks_pa1), color = Color(0xFF222222), fontSize = 13.sp, fontWeight = FontWeight.Medium)
                             }
                             Box(modifier = Modifier.width(1.dp).fillMaxHeight().background(Color(0xFF7A7D81)))
                             Box(
@@ -750,14 +762,15 @@ fun ExamSettingsScreen(
                                 )
                             }
                         }
-                        Divider(color = Color(0xFF7A7D81), thickness = 1.dp)
+                        HorizontalDivider(color = Color(0xFF7A7D81), thickness = 1.dp)
 
                         // Max Marks PA2
                         val hasPA2_2 = t2CountInt >= 2
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(38.dp)
+                                .wrapContentHeight()
+                                .padding(vertical = 4.dp)
                         ) {
                             Box(
                                 modifier = Modifier
@@ -797,14 +810,15 @@ fun ExamSettingsScreen(
                                 )
                             }
                         }
-                        Divider(color = Color(0xFF7A7D81), thickness = 1.dp)
+                        HorizontalDivider(color = Color(0xFF7A7D81), thickness = 1.dp)
 
                         // Max Marks PA3
                         val hasPA3_2 = t2CountInt >= 3
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(38.dp)
+                                .wrapContentHeight()
+                                .padding(vertical = 4.dp)
                         ) {
                             Box(
                                 modifier = Modifier
@@ -976,7 +990,8 @@ fun ExamSettingsScreen(
                         shape = RoundedCornerShape(2.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp)
+                            .wrapContentHeight()
+                            .padding(vertical = 12.dp)
                             .testTag("wizard_next_btn")
                     ) {
                         Text(

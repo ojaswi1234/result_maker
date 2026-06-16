@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -15,6 +15,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -24,11 +28,16 @@ import com.example.viewmodel.AppViewModel
 import com.example.viewmodel.AuthState
 import com.google.firebase.auth.FirebaseAuth
 
-class MainActivity : ComponentActivity() {
+import com.google.firebase.FirebaseApp
+import androidx.compose.runtime.LaunchedEffect
+import androidx.navigation.NavOptions
+
+class MainActivity : AppCompatActivity() {
     private val viewModel: AppViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        FirebaseApp.initializeApp(this)
         enableEdgeToEdge()
 
         setContent {
@@ -78,15 +87,24 @@ fun MainAppHost(viewModel: AppViewModel) {
     val navController = rememberNavController()
     val authState by viewModel.authState.collectAsState()
 
-    // Route tags definition
-    val startRoute = if (authState is AuthState.Authenticated) "dashboard" else "login"
+    // Observe configuration changes to trigger recomposition when locale changes
+    val configuration = LocalConfiguration.current
+    val currentLocale = remember(configuration) {
+        AppCompatDelegate.getApplicationLocales().toLanguageTags().ifEmpty { "en" }
+    }
 
-    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = startRoute,
-            modifier = Modifier.padding(innerPadding)
-        ) {
+    // Determine initial route once to avoid NavHost recomposition issues
+    val initialRoute = remember { 
+        if (com.google.firebase.auth.FirebaseAuth.getInstance().currentUser != null) "dashboard" else "login" 
+    }
+
+    CompositionLocalProvider(LocalLocale provides currentLocale) {
+        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+            NavHost(
+                navController = navController,
+                startDestination = initialRoute,
+                modifier = Modifier.padding(innerPadding)
+            ) {
             // Google authentication sign-in page
             composable("login") {
                 LoginScreen(
@@ -157,4 +175,5 @@ fun MainAppHost(viewModel: AppViewModel) {
             }
         }
     }
+}
 }

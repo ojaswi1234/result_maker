@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">रिजल्ट मेकर</string>
+    <string name="app_name">नवोदय रिजल्ट मेकर</string>
     <string name="school_name_default">ग्लोबल एकेडमी</string>
     <string name="signed_in_context">साइन इन संदर्भ:</string>
     <string name="simulate_role_context">भूमिका संदर्भ अनुकरण करें:</string>
@@ -137,4 +137,14 @@
     <string name="scholar_id_label">स्कॉलर आईडी</string>
     <string name="class_level_label">कक्षा/स्तर</string>
     <string name="roster_section_label">अनुभाग</string>
+    <string name="guest_account">अतिथि खाता (Guest Account)</string>
+    <string name="school_logo">स्कूल का लोगो</string>
+    <string name="active_user">सक्रिय उपयोगकर्ता</string>
+    <string name="ma_multiple_assessment">एम.ए. / बहुविध मूल्यांकन (MA)</string>
+    <string name="notebook_submission">नोटबुक जमा करना</string>
+    <string name="subject_enrichment_project">विषय संवर्धन / परियोजना</string>
+    <string name="pa_weightage">पी.ए. वेटेज</string>
+    <string name="pa_term_1">पी.ए. टर्म-1</string>
+    <string name="pa_term_2">पी.ए. टर्म-2</string>
+    <string name="max_marks_pa1">पी.ए.1 में अधिकतम अंक</string>
 </resources>

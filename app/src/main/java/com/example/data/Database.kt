@@ -117,6 +117,9 @@ interface StudentDao {
     @Query("SELECT * FROM students WHERE className = :className AND sectionName = :section ORDER BY name ASC")
     fun getStudentsByClassAndSectionFlow(className: String, section: String): Flow<List<Student>>
 
+    @Query("SELECT * FROM students WHERE className = :className AND sectionName = :section ORDER BY name ASC")
+    suspend fun getStudentsByClassAndSection(className: String, section: String): List<Student>
+
     @Query("SELECT * FROM students WHERE id = :id LIMIT 1")
     suspend fun getStudentById(id: Int): Student?
 

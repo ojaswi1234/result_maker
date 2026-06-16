@@ -34,6 +34,9 @@ import android.widget.Toast
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+
 @Composable
 fun LoginScreen(
     viewModel: AppViewModel,
@@ -42,9 +45,7 @@ fun LoginScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var authErrorMessage by remember { mutableStateOf<String?>(null) }
-    var isRegisterTab by remember { mutableStateOf(false) }
     var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
     
     val authState by viewModel.authState.collectAsState()
 
@@ -68,15 +69,15 @@ fun LoginScreen(
                         MaterialTheme.colorScheme.background
                     )
                 )
-            ),
-        contentAlignment = Alignment.Center
+            )
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.Center
         ) {
             // Animated Header Icon
             Box(
@@ -96,6 +97,8 @@ fun LoginScreen(
                 )
             }
 
+            Spacer(modifier = Modifier.height(16.dp))
+
             Text(
                 text = "Result Maker",
                 fontSize = 32.sp,
@@ -107,17 +110,21 @@ fun LoginScreen(
             Text(
                 text = "Academic Performance & Result Generator Solution",
                 fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
-            // Main Auth Card
-            ElevatedCard(
+            // Main Auth Card with Fixed Visibility (Contrast & Surface)
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .background(
+                        MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                        RoundedCornerShape(24.dp)
+                    )
                     .border(
                         width = 1.dp,
                         color = MaterialTheme.colorScheme.outlineVariant,
@@ -125,8 +132,8 @@ fun LoginScreen(
                     )
                     .testTag("auth_card"),
                 shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.elevatedCardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                colors = CardDefaults.cardColors(
+                    containerColor = Color.Transparent // Background is handled by modifier
                 )
             ) {
                 Column(
@@ -147,12 +154,10 @@ fun LoginScreen(
                     Text(
                         text = "Enter your email to receive a secure sign-in magic link. No passwords needed.",
                         fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurface,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(horizontal = 8.dp)
                     )
-
-                    Spacer(modifier = Modifier.height(12.dp))
 
                     OutlinedTextField(
                         value = email,
@@ -161,8 +166,6 @@ fun LoginScreen(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
-
-                    Spacer(modifier = Modifier.height(12.dp))
 
                     Button(
                         onClick = {
@@ -178,7 +181,8 @@ fun LoginScreen(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(52.dp),
+                            .wrapContentHeight()
+                            .padding(vertical = 4.dp),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(
@@ -196,12 +200,13 @@ fun LoginScreen(
                         Text(
                             text = "OR",
                             modifier = Modifier.padding(horizontal = 8.dp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.colorScheme.onSurface,
                             style = MaterialTheme.typography.bodySmall
                         )
                         HorizontalDivider(modifier = Modifier.weight(1f))
                     }
 
+                    // Google Sign-In Button Refinement
                     Button(
                         onClick = {
                             val clientId = "265210770390-po0mrell69mqk6jeessik4b074hkt1kf.apps.googleusercontent.com"
@@ -246,12 +251,13 @@ fun LoginScreen(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(56.dp)
+                            .wrapContentHeight()
+                            .padding(vertical = 4.dp)
                             .testTag("google_signin_button"),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.White,
-                            contentColor = Color(0xFF1F1F1F)
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                         ),
                         shape = RoundedCornerShape(12.dp),
                         elevation = ButtonDefaults.buttonElevation(
@@ -268,14 +274,14 @@ fun LoginScreen(
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
                                 text = "Sign in with Google",
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 16.sp,
-                                color = Color(0xFF1F1F1F)
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
                             )
                         }
                     }
                 }
             }
+
             // Show Error Message
             if (authErrorMessage != null) {
                 Card(

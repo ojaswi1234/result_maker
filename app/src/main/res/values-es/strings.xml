@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Creador de Resultados</string>
+    <string name="app_name">Navodhya Result Maker</string>
     <string name="school_name_default">Academia Global</string>
     <string name="signed_in_context">Contexto de inicio de sesión:</string>
     <string name="simulate_role_context">Simular contexto de rol:</string>
@@ -137,4 +137,14 @@
     <string name="scholar_id_label">ID Escolar</string>
     <string name="class_level_label">Clase/Nivel</string>
     <string name="roster_section_label">Sección</string>
+    <string name="guest_account">Cuenta de Invitado</string>
+    <string name="school_logo">Logo de la Escuela</string>
+    <string name="active_user">Usuario Activo</string>
+    <string name="ma_multiple_assessment">MA / Evaluación Múltiple</string>
+    <string name="notebook_submission">Entrega de Cuaderno</string>
+    <string name="subject_enrichment_project">Enriquecimiento de Materia / Proyecto</string>
+    <string name="pa_weightage">Ponderación de PA</string>
+    <string name="pa_term_1">PA Trimestre-1</string>
+    <string name="pa_term_2">PA Trimestre-2</string>
+    <string name="max_marks_pa1">Puntaje Máximo en PA1</string>
 </resources>

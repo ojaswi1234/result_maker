@@ -489,7 +489,8 @@ fun ResultAnalysisScreen(
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(46.dp)
+                                .wrapContentHeight()
+                                .padding(vertical = 4.dp)
                                 .testTag("download_excel_button"),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFF107C41),
@@ -929,7 +930,7 @@ fun ScorecardWidget(
     modifier: Modifier = Modifier
 ) {
     ElevatedCard(
-        modifier = modifier.height(96.dp),
+        modifier = modifier.aspectRatio(1.6f),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
@@ -937,7 +938,7 @@ fun ScorecardWidget(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(14.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+            verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
         ) {
             Text(text = label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
             Row(

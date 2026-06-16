@@ -188,10 +188,10 @@ fun ClassSectionScreen(
                                             classStudents
                                         )
                                         if (file != null) {
-                                            com.example.data.ExcelBackupHelper.shareFile(context, file)
+                                            com.example.data.ExcelBackupHelper.downloadFile(context, file)
                                         }
                                     },
-                                    modifier = Modifier.fillMaxWidth().height(40.dp).testTag("download_excel_roster_button"),
+                                    modifier = Modifier.fillMaxWidth().wrapContentHeight().padding(vertical = 4.dp).testTag("download_excel_roster_button"),
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
                                     Icon(imageVector = Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -831,7 +831,8 @@ fun SectionSubjectsView(
                 onClick = { showAddDialog = true },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp)
+                    .wrapContentHeight()
+                    .padding(vertical = 4.dp)
                     .testTag("add_new_subject_button"),
                 shape = RoundedCornerShape(10.dp)
             ) {

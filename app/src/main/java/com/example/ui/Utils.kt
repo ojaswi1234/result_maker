@@ -5,7 +5,10 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.util.Base64
+import androidx.compose.runtime.staticCompositionLocalOf
 import java.io.ByteArrayOutputStream
+
+val LocalLocale = staticCompositionLocalOf { "en" }
 
 // URI Downscaling Base64 Encoder
 fun uriToBase64(context: Context, uri: Uri): String? {

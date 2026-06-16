@@ -21,6 +21,10 @@ class SchoolRepository(private val db: AppDatabase) {
         return db.studentDao.getStudentsByClassAndSectionFlow(className, sectionName)
     }
 
+    suspend fun getStudentsForSection(className: String, sectionName: String): List<Student> {
+        return db.studentDao.getStudentsByClassAndSection(className, sectionName)
+    }
+
     suspend fun getStudentById(id: Int): Student? = db.studentDao.getStudentById(id)
 
     suspend fun insertStudent(student: Student): Long = db.studentDao.insert(student)

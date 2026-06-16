@@ -32,6 +32,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import com.example.R
 import com.example.data.Mark
 import com.example.data.SchoolSetting
@@ -455,7 +457,8 @@ fun ResultGeneratorScreen(
                                         onClick = { classMenuExpanded = true },
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .height(48.dp)
+                                            .wrapContentHeight()
+                                            .padding(vertical = 4.dp)
                                             .testTag("class_menu_button"),
                                         shape = RoundedCornerShape(10.dp)
                                     ) {
@@ -496,7 +499,8 @@ fun ResultGeneratorScreen(
                                         onClick = { layoutMenuExpanded = true },
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .height(48.dp)
+                                            .wrapContentHeight()
+                                            .padding(vertical = 4.dp)
                                             .testTag("layout_menu_button"),
                                         shape = RoundedCornerShape(10.dp)
                                     ) {
@@ -538,7 +542,8 @@ fun ResultGeneratorScreen(
                                     onClick = { studentMenuExpanded = true },
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(48.dp)
+                                        .wrapContentHeight()
+                                        .padding(vertical = 4.dp)
                                         .testTag("student_menu_button"),
                                     shape = RoundedCornerShape(10.dp),
                                     enabled = classFilteredStudents.isNotEmpty()
@@ -680,10 +685,10 @@ fun ResultGeneratorScreen(
                                         .padding(horizontal = 6.dp, vertical = 4.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Text(stringResource(R.string.subject_title), fontWeight = FontWeight.Bold, fontSize = 11.sp, modifier = Modifier.weight(2f))
-                                    Text(stringResource(R.string.term_1_total), fontWeight = FontWeight.Bold, fontSize = 11.sp, modifier = Modifier.weight(1.2f), textAlign = TextAlign.End)
-                                    Text(stringResource(R.string.term_2_total), fontWeight = FontWeight.Bold, fontSize = 11.sp, modifier = Modifier.weight(1.2f), textAlign = TextAlign.End)
-                                    Text(stringResource(R.string.final_label), fontWeight = FontWeight.Bold, fontSize = 11.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.End)
+                                    Text(stringResource(R.string.subject_title), fontWeight = FontWeight.Bold, fontSize = 10.sp, modifier = Modifier.weight(1.5f))
+                                    Text("T1 (UT1+2+E1)", fontWeight = FontWeight.Bold, fontSize = 10.sp, modifier = Modifier.weight(1.5f), textAlign = TextAlign.End)
+                                    Text("T2 (UT3+4+E2)", fontWeight = FontWeight.Bold, fontSize = 10.sp, modifier = Modifier.weight(1.5f), textAlign = TextAlign.End)
+                                    Text(stringResource(R.string.final_label), fontWeight = FontWeight.Bold, fontSize = 10.sp, modifier = Modifier.weight(0.8f), textAlign = TextAlign.End)
                                 }
 
                                 sectionSubjects.forEach { sub ->
@@ -693,10 +698,10 @@ fun ResultGeneratorScreen(
                                         it.subjectName.equals(sub, ignoreCase = true) 
                                     }?.maxMarks ?: 100.0
 
-                                    val comp1 = getComponentMarks(student.id, sub, "Term 1", allMarks, weightage)
-                                    val comp2 = getComponentMarks(student.id, sub, "Term 2", allMarks, weightage)
+                                    val comp1 = getTermMarks(student.id, sub, "Term 1", allMarks)
+                                    val comp2 = getTermMarks(student.id, sub, "Term 2", allMarks)
                                     val finalTotal = comp1.total + comp2.total
-                                    val finalPercentage = ((comp1.total + comp2.total) / (2.0 * weightage)) * 100.0
+                                    val finalPercentage = (finalTotal / (2.0 * weightage)) * 100.0
                                     val finalGrade = computeGrade(finalPercentage)
 
                                     Row(
@@ -705,10 +710,10 @@ fun ResultGeneratorScreen(
                                             .padding(horizontal = 6.dp, vertical = 2.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Text(sub, fontSize = 12.sp, modifier = Modifier.weight(2f))
-                                        Text("${comp1.total.toInt()}/${weightage.toInt()}", fontSize = 12.sp, modifier = Modifier.weight(1.2f), textAlign = TextAlign.End)
-                                        Text("${comp2.total.toInt()}/${weightage.toInt()}", fontSize = 12.sp, modifier = Modifier.weight(1.2f), textAlign = TextAlign.End)
-                                        Text(finalGrade, fontWeight = FontWeight.Bold, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f), textAlign = TextAlign.End)
+                                        Text(sub, fontSize = 11.sp, modifier = Modifier.weight(1.5f), maxLines = 1)
+                                        Text("${comp1.ut1.toInt()}+${comp1.ut2.toInt()}+${comp1.theory.toInt()}", fontSize = 11.sp, modifier = Modifier.weight(1.5f), textAlign = TextAlign.End)
+                                        Text("${comp2.ut1.toInt()}+${comp2.ut2.toInt()}+${comp2.theory.toInt()}", fontSize = 11.sp, modifier = Modifier.weight(1.5f), textAlign = TextAlign.End)
+                                        Text(finalGrade, fontWeight = FontWeight.Bold, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(0.8f), textAlign = TextAlign.End)
                                     }
                                 }
 
@@ -752,7 +757,8 @@ fun ResultGeneratorScreen(
                                         },
                                         modifier = Modifier
                                             .weight(1f)
-                                            .height(45.dp)
+                                            .wrapContentHeight()
+                                            .padding(vertical = 4.dp)
                                             .testTag("download_ut_results_button"),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
@@ -781,7 +787,8 @@ fun ResultGeneratorScreen(
                                         },
                                         modifier = Modifier
                                             .weight(1f)
-                                            .height(45.dp)
+                                            .wrapContentHeight()
+                                            .padding(vertical = 4.dp)
                                             .testTag("download_term_results_button"),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = MaterialTheme.colorScheme.tertiaryContainer,
@@ -815,7 +822,8 @@ fun ResultGeneratorScreen(
                                         },
                                         modifier = Modifier
                                             .weight(1f)
-                                            .height(45.dp)
+                                            .wrapContentHeight()
+                                            .padding(vertical = 4.dp)
                                             .testTag("download_result_button"),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -844,7 +852,8 @@ fun ResultGeneratorScreen(
                                         },
                                         modifier = Modifier
                                             .weight(1f)
-                                            .height(45.dp)
+                                            .wrapContentHeight()
+                                            .padding(vertical = 4.dp)
                                             .testTag("print_pdf_button"),
                                         shape = RoundedCornerShape(10.dp)
                                     ) {
@@ -869,7 +878,8 @@ fun ResultGeneratorScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(16.dp)
-                            .height(200.dp),
+                            .wrapContentHeight()
+                            .padding(vertical = 40.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(stringResource(R.string.select_class_to_preview), color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -903,87 +913,41 @@ fun computeGrade(percentage: Double): String {
     }
 }
 
-data class ComponentMarks(
-    val pa: Double,
-    val nb: Double,
-    val se: Double,
-    val exam: Double
+data class TermMarks(
+    val ut1: Double,
+    val ut2: Double,
+    val theory: Double,
+    val internal: Double
 ) {
-    val total: Double get() = pa + nb + se + exam
+    val total: Double get() = ut1 + ut2 + theory + internal
 }
 
-fun getComponentMarks(
+fun getTermMarks(
     studentId: Int,
     subjectName: String,
     termName: String,
-    marks: List<Mark>,
-    subjectMaxMarks: Double = 100.0
-): ComponentMarks {
-    val studentMarks = marks.filter { 
-        it.studentId == studentId && 
-        it.subjectName.equals(subjectName, ignoreCase = true) 
-    }
-    
-    // Find matching records
-    val paMark = studentMarks.find { 
-        it.termName.equals(termName, ignoreCase = true) && 
-        (it.examType.contains("Periodic", ignoreCase = true) || it.examType.contains("PA", ignoreCase = true)) 
-    }
-    val nbMark = studentMarks.find { 
-        it.termName.equals(termName, ignoreCase = true) && 
-        (it.examType.contains("Internal", ignoreCase = true) || it.examType.contains("Notebook", ignoreCase = true) || it.examType.contains("NB", ignoreCase = true)) 
-    }
-    val seMark = studentMarks.find { 
-        it.termName.equals(termName, ignoreCase = true) && 
-        (it.examType.contains("Practical", ignoreCase = true) || it.examType.contains("Enrichment", ignoreCase = true) || it.examType.contains("Project", ignoreCase = true) || it.examType.contains("SE", ignoreCase = true)) 
-    }
-    val examMark = studentMarks.find { 
-        it.termName.equals(termName, ignoreCase = true) && 
-        (it.examType.contains("Final", ignoreCase = true) || it.examType.contains("Exam", ignoreCase = true) || it.examType.contains("HY", ignoreCase = true) || it.examType.contains("Annual", ignoreCase = true) || it.examType.contains("Term Exam", ignoreCase = true)) 
+    marks: List<Mark>
+): TermMarks {
+    val studentMarks = marks.filter {
+        it.studentId == studentId &&
+        it.subjectName.equals(subjectName, ignoreCase = true)
     }
 
-    // Standard weights mapping: PA = 10%, NB = 5%, SE = 5%, EXAM = 80% out of subjectMaxMarks
-    val maxPa = subjectMaxMarks * 0.10
-    val maxNb = subjectMaxMarks * 0.05
-    val maxSe = subjectMaxMarks * 0.05
-    val maxExam = subjectMaxMarks * 0.80
+    val ut1Type = if (termName == "Term 1") "UT1" else "UT3"
+    val ut2Type = if (termName == "Term 1") "UT2" else "UT4"
+    val theoryType = if (termName == "Term 1") "Half Yearly" else "Annual Exam"
+    val intType = if (termName == "Term 1") "Term 1 Internal" else "Term 2 Internal"
 
-    // Scale scores
-    val paVal = paMark?.let { (it.marksObtained / it.maxMarks) * maxPa }
-    val nbVal = nbMark?.let { (it.marksObtained / it.maxMarks) * maxNb }
-    val seVal = seMark?.let { (it.marksObtained / it.maxMarks) * maxSe }
-    val examVal = examMark?.let { (it.marksObtained / it.maxMarks) * maxExam }
+    val ut1Mark = studentMarks.find { it.examType == ut1Type }
+    val ut2Mark = studentMarks.find { it.examType == ut2Type }
+    val theoryMark = studentMarks.find { it.examType == theoryType }
+    val intMark = studentMarks.find { it.examType == intType }
 
-    // If any component is present, return it
-    if (paVal != null || nbVal != null || seVal != null || examVal != null) {
-        return ComponentMarks(
-            pa = paVal ?: 0.0,
-            nb = nbVal ?: 0.0,
-            se = seVal ?: 0.0,
-            exam = examVal ?: 0.0
-        )
-    }
-
-    // Fallback: search for any raw term exam or mark in this term and distribute it
-    val termMarkFallback = studentMarks.find { it.termName.equals(termName, ignoreCase = true) } ?: studentMarks.firstOrNull()
-    if (termMarkFallback != null) {
-        val basePercent = (termMarkFallback.marksObtained / termMarkFallback.maxMarks) * 100.0
-        return ComponentMarks(
-            pa = basePercent * 0.01 * maxPa,
-            nb = basePercent * 0.01 * maxNb,
-            se = basePercent * 0.01 * maxSe,
-            exam = basePercent * 0.01 * maxExam
-        )
-    }
-
-    // If absolutely nothing is found, we fall back to a clean default based on the student ID to look beautiful!
-    val baseSeed = (studentId + subjectName.hashCode()).coerceAtLeast(0)
-    val basePercent = 65.0 + (baseSeed % 31) // gives score 65% to 95%
-    return ComponentMarks(
-        pa = basePercent * 0.01 * maxPa,
-        nb = basePercent * 0.01 * maxNb,
-        se = basePercent * 0.01 * maxSe,
-        exam = basePercent * 0.01 * maxExam
+    return TermMarks(
+        ut1 = ut1Mark?.marksObtained ?: 0.0,
+        ut2 = ut2Mark?.marksObtained ?: 0.0,
+        theory = theoryMark?.marksObtained ?: 0.0,
+        internal = intMark?.marksObtained ?: 0.0
     )
 }
 
@@ -1030,16 +994,16 @@ fun getSectionRanks(
             }?.maxMarks ?: 100.0
 
             if (reportLayout.contains("Term 1")) {
-                val comp = getComponentMarks(student.id, sub, "Term 1", allMarks, weightage)
+                val comp = getTermMarks(student.id, sub, "Term 1", allMarks)
                 totalObtained += comp.total
                 totalMax += weightage
             } else if (reportLayout.contains("Term 2")) {
-                val comp = getComponentMarks(student.id, sub, "Term 2", allMarks, weightage)
+                val comp = getTermMarks(student.id, sub, "Term 2", allMarks)
                 totalObtained += comp.total
                 totalMax += weightage
             } else { // Combined
-                val comp1 = getComponentMarks(student.id, sub, "Term 1", allMarks, weightage)
-                val comp2 = getComponentMarks(student.id, sub, "Term 2", allMarks, weightage)
+                val comp1 = getTermMarks(student.id, sub, "Term 1", allMarks)
+                val comp2 = getTermMarks(student.id, sub, "Term 2", allMarks)
                 totalObtained += comp1.total + comp2.total
                 totalMax += 2.0 * weightage
             }
@@ -1092,10 +1056,10 @@ fun printResultPdf(
                     }?.maxMarks ?: 100.0
                     termMaxSum += weightage
 
-                    val comp1 = getComponentMarks(student.id, sub, "Term 1", allMarks, weightage)
-                    val comp2 = getComponentMarks(student.id, sub, "Term 2", allMarks, weightage)
-                    val subjectCombinedTotal = comp1.total + comp2.total
-                    val subjectCombinedGrade = computeGrade((subjectCombinedTotal / (2.0 * weightage)) * 100.0)
+                    val comp1 = getTermMarks(student.id, sub, "Term 1", allMarks)
+                    val comp2 = getTermMarks(student.id, sub, "Term 2", allMarks)
+                    val subjectCombinedTotal = (comp1.total * 0.4) + (comp2.total * 0.6)
+                    val subjectCombinedGrade = computeGrade((subjectCombinedTotal / weightage) * 100.0)
 
                     t1TotalSum += comp1.total
                     t2TotalSum += comp2.total
@@ -1103,21 +1067,19 @@ fun printResultPdf(
                     subjectsRows.append("""
                         <tr>
                             <td style="border: 1px solid #7A7D81; padding: 4px; text-align: left; font-weight: bold; font-size: 11px;">$sub <span style="font-weight: normal; font-size: 9px; color: #666;">(${weightage.toInt()})</span></td>
-                            <td style="border: 1px solid #7A7D81; padding: 4px; font-size: 10.5px;">${Math.round(comp1.pa)}</td>
-                            <td style="border: 1px solid #7A7D81; padding: 4px; font-size: 10.5px;">${Math.round(comp1.nb)}</td>
-                            <td style="border: 1px solid #7A7D81; padding: 4px; font-size: 10.5px;">${Math.round(comp1.se)}</td>
-                            <td style="border: 1px solid #7A7D81; padding: 4px; font-size: 10.5px;">${Math.round(comp1.exam)}</td>
+                            <td style="border: 1px solid #7A7D81; padding: 4px; font-size: 10.5px;">${Math.round(comp1.ut1)}</td>
+                            <td style="border: 1px solid #7A7D81; padding: 4px; font-size: 10.5px;">${Math.round(comp1.ut2)}</td>
+                            <td style="border: 1px solid #7A7D81; padding: 4px; font-size: 10.5px;">${Math.round(comp1.theory)}</td>
+                            <td style="border: 1px solid #7A7D81; padding: 4px; font-size: 10.5px;">${Math.round(comp1.internal)}</td>
                             <td style="border: 1px solid #7A7D81; padding: 4px; font-weight: bold; background: #FAF9F6; font-size: 11px;">${Math.round(comp1.total)}</td>
-                            <td style="border: 1px solid #7A7D81; padding: 4px; font-weight: bold; font-size: 11px; color: #1E3A8A;">${computeGrade((comp1.total / weightage) * 100.0)}</td>
                             
-                            <td style="border: 1px solid #7A7D81; padding: 4px; font-size: 10.5px;">${Math.round(comp2.pa)}</td>
-                            <td style="border: 1px solid #7A7D81; padding: 4px; font-size: 10.5px;">${Math.round(comp2.nb)}</td>
-                            <td style="border: 1px solid #7A7D81; padding: 4px; font-size: 10.5px;">${Math.round(comp2.se)}</td>
-                            <td style="border: 1px solid #7A7D81; padding: 4px; font-size: 10.5px;">${Math.round(comp2.exam)}</td>
+                            <td style="border: 1px solid #7A7D81; padding: 4px; font-size: 10.5px;">${Math.round(comp2.ut1)}</td>
+                            <td style="border: 1px solid #7A7D81; padding: 4px; font-size: 10.5px;">${Math.round(comp2.ut2)}</td>
+                            <td style="border: 1px solid #7A7D81; padding: 4px; font-size: 10.5px;">${Math.round(comp2.theory)}</td>
+                            <td style="border: 1px solid #7A7D81; padding: 4px; font-size: 10.5px;">${Math.round(comp2.internal)}</td>
                             <td style="border: 1px solid #7A7D81; padding: 4px; font-weight: bold; background: #FAF9F6; font-size: 11px;">${Math.round(comp2.total)}</td>
-                            <td style="border: 1px solid #7A7D81; padding: 4px; font-weight: bold; font-size: 11px; color: #1E3A8A;">${computeGrade((comp2.total / weightage) * 100.0)}</td>
                             
-                            <td style="border: 1px solid #7A7D81; padding: 4px; font-weight: bold; background: #F1F3F5; font-size: 11px;">${Math.round(subjectCombinedTotal)} <span style="font-weight: normal; font-size: 9px; color: #666;">/ ${(weightage * 2).toInt()}</span></td>
+                            <td style="border: 1px solid #7A7D81; padding: 4px; font-weight: bold; background: #F1F3F5; font-size: 11px;">${String.format("%.1f", subjectCombinedTotal)} <span style="font-weight: normal; font-size: 9px; color: #666;">/ ${weightage.toInt()}</span></td>
                             <td style="border: 1px solid #7A7D81; padding: 4px; font-weight: bold; background: #F1F3F5; font-size: 11px; color: #1E3A8A;">$subjectCombinedGrade</td>
                         </tr>
                     """.trimIndent())
@@ -1125,8 +1087,8 @@ fun printResultPdf(
 
                 val t1Pct = if (termMaxSum > 0) (t1TotalSum / termMaxSum) * 100.0 else 0.0
                 val t2Pct = if (termMaxSum > 0) (t2TotalSum / termMaxSum) * 100.0 else 0.0
-                val finalTotalSum = t1TotalSum + t2TotalSum
-                val finalPct = if (termMaxSum > 0) (finalTotalSum / (2.0 * termMaxSum)) * 100.0 else 0.0
+                val finalTotalSum = (t1TotalSum * 0.4) + (t2TotalSum * 0.6)
+                val finalPct = if (termMaxSum > 0) (finalTotalSum / termMaxSum) * 100.0 else 0.0
 
                 val coScholGrade1 = if (t1Pct >= 75.0) "A" else "B"
                 val coScholGrade2 = if (t2Pct >= 75.0) "A" else "B"
@@ -1191,26 +1153,24 @@ fun printResultPdf(
                                 <thead>
                                     <tr style="background: #F1F3F5; border: 1px solid #7A7D81; font-weight: bold; font-size: 11px;">
                                         <th style="border: 1px solid #7A7D81; padding: 4px; text-align: left;" rowspan="2">Scholastic Areas<br>Main Subjects</th>
-                                        <th style="border: 1px solid #7A7D81; padding: 4px;" colspan="6">Term 1 (100 Marks)</th>
-                                        <th style="border: 1px solid #7A7D81; padding: 4px;" colspan="6">Term 2 (100 Marks)</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 4px;" colspan="5">Term 1</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 4px;" colspan="5">Term 2</th>
                                         <th style="border: 1px solid #7A7D81; padding: 4px;" colspan="2">Final Result</th>
                                     </tr>
                                     <tr style="background: #F8F9FA; border: 1px solid #7A7D81; font-weight: bold; font-size: 9px;">
-                                        <th style="border: 1px solid #7A7D81; padding: 3px;">PA<br><span style="font-weight: normal; font-size: 8px;">10</span></th>
-                                        <th style="border: 1px solid #7A7D81; padding: 3px;">NB<br><span style="font-weight: normal; font-size: 8px;">5</span></th>
-                                        <th style="border: 1px solid #7A7D81; padding: 3px;">SE<br><span style="font-weight: normal; font-size: 8px;">5</span></th>
-                                        <th style="border: 1px solid #7A7D81; padding: 3px;">HY<br><span style="font-weight: normal; font-size: 8px;">80</span></th>
-                                        <th style="border: 1px solid #7A7D81; padding: 3px; font-weight: bold;">Total<br><span style="font-weight: normal; font-size: 8px;">100</span></th>
-                                        <th style="border: 1px solid #7A7D81; padding: 3px;">Grade</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 3px;">UT1</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 3px;">UT2</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 3px;">HY</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 3px;">T1 Int</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 3px; font-weight: bold;">T1 Total</th>
                                         
-                                        <th style="border: 1px solid #7A7D81; padding: 3px;">PA<br><span style="font-weight: normal; font-size: 8px;">10</span></th>
-                                        <th style="border: 1px solid #7A7D81; padding: 3px;">NB<br><span style="font-weight: normal; font-size: 8px;">5</span></th>
-                                        <th style="border: 1px solid #7A7D81; padding: 3px;">SE<br><span style="font-weight: normal; font-size: 8px;">5</span></th>
-                                        <th style="border: 1px solid #7A7D81; padding: 3px;">Annual<br><span style="font-weight: normal; font-size: 8px;">80</span></th>
-                                        <th style="border: 1px solid #7A7D81; padding: 3px; font-weight: bold;">Total<br><span style="font-weight: normal; font-size: 8px;">100</span></th>
-                                        <th style="border: 1px solid #7A7D81; padding: 3px;">Grade</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 3px;">UT3</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 3px;">UT4</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 3px;">Annual</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 3px;">T2 Int</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 3px; font-weight: bold;">T2 Total</th>
                                         
-                                        <th style="border: 1px solid #7A7D81; padding: 3px; font-weight: bold;">Total<br><span style="font-weight: normal; font-size: 8px;">200</span></th>
+                                        <th style="border: 1px solid #7A7D81; padding: 3px; font-weight: bold;">Final (40/60)</th>
                                         <th style="border: 1px solid #7A7D81; padding: 3px; font-weight: bold;">Grade</th>
                                     </tr>
                                 </thead>
@@ -1223,17 +1183,15 @@ fun printResultPdf(
                                         <td style="border: 1px solid #7A7D81; padding: 4px;"></td>
                                         <td style="border: 1px solid #7A7D81; padding: 4px;"></td>
                                         <td style="border: 1px solid #7A7D81; padding: 4px; background: #FAF9F6;">${Math.round(t1TotalSum)}</td>
-                                        <td style="border: 1px solid #7A7D81; padding: 4px;">${String.format("%.2f%%", t1Pct)}</td>
                                         
                                         <td style="border: 1px solid #7A7D81; padding: 4px;"></td>
                                         <td style="border: 1px solid #7A7D81; padding: 4px;"></td>
                                         <td style="border: 1px solid #7A7D81; padding: 4px;"></td>
                                         <td style="border: 1px solid #7A7D81; padding: 4px;"></td>
                                         <td style="border: 1px solid #7A7D81; padding: 4px; background: #FAF9F6;">${Math.round(t2TotalSum)}</td>
-                                        <td style="border: 1px solid #7A7D81; padding: 4px;">${String.format("%.2f%%", t2Pct)}</td>
                                         
-                                        <td style="border: 1px solid #7A7D81; padding: 4px; background: #F1F3F5;">${Math.round(finalTotalSum)}</td>
-                                        <td style="border: 1px solid #7A7D81; padding: 4px; background: #F1F3F5; color: #1E3A8A;">${String.format("%.2f%%", finalPct)}</td>
+                                        <td style="border: 1px solid #7A7D81; padding: 4px; background: #F1F3F5;">${String.format("%.1f", finalTotalSum)}</td>
+                                        <td style="border: 1px solid #7A7D81; padding: 4px; background: #F1F3F5; color: #1E3A8A;">${String.format("%.1f%%", finalPct)}</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -1389,16 +1347,16 @@ fun printResultPdf(
                     }?.maxMarks ?: 100.0
                     termMaxSum += weightage
 
-                    val comp = getComponentMarks(student.id, sub, activeTermName, allMarks, weightage)
+                    val comp = getTermMarks(student.id, sub, activeTermName, allMarks)
                     totalSum += comp.total
 
                     subjectsRows.append("""
                         <tr>
                             <td style="border: 1px solid #7A7D81; padding: 5px; text-align: left; font-weight: bold; font-size: 11px;">$sub</td>
-                            <td style="border: 1px solid #7A7D81; padding: 5px; font-size: 11px;">${Math.round(comp.pa)}</td>
-                            <td style="border: 1px solid #7A7D81; padding: 5px; font-size: 11px;">${Math.round(comp.nb)}</td>
-                            <td style="border: 1px solid #7A7D81; padding: 5px; font-size: 11px;">${Math.round(comp.se)}</td>
-                            <td style="border: 1px solid #7A7D81; padding: 5px; font-size: 11px;">${Math.round(comp.exam)}</td>
+                            <td style="border: 1px solid #7A7D81; padding: 5px; font-size: 11px;">${Math.round(comp.ut1)}</td>
+                            <td style="border: 1px solid #7A7D81; padding: 5px; font-size: 11px;">${Math.round(comp.ut2)}</td>
+                            <td style="border: 1px solid #7A7D81; padding: 5px; font-size: 11px;">${Math.round(comp.theory)}</td>
+                            <td style="border: 1px solid #7A7D81; padding: 5px; font-size: 11px;">${Math.round(comp.internal)}</td>
                             <td style="border: 1px solid #7A7D81; padding: 5px; font-weight: bold; background: #FAF9F6; font-size: 11px;">${Math.round(comp.total)} <span style="font-weight: normal; font-size: 9px; color: #666;">/ ${weightage.toInt()}</span></td>
                             <td style="border: 1px solid #7A7D81; padding: 5px; font-weight: bold; font-size: 11px; color: #1E3A8A;">${computeGrade((comp.total / weightage) * 100.0)}</td>
                         </tr>
@@ -1466,23 +1424,21 @@ fun printResultPdf(
                                 <thead>
                                     <tr style="background: #F1F3F5; border: 1px solid #7A7D81; font-weight: bold; font-size: 11px;">
                                         <th style="border: 1px solid #7A7D81; padding: 4px; text-align: left;" colspan="1">Scholastic Areas</th>
-                                        <th style="border: 1px solid #7A7D81; padding: 4px;" colspan="6">$activeTermName (100 Marks)</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 4px;" colspan="5">$activeTermName</th>
                                     </tr>
                                     <tr style="background: #F8F9FA; border: 1px solid #7A7D81; font-weight: bold; font-size: 9.5px;">
-                                        <th style="border: 1px solid #7A7D81; padding: 4px; text-align: left; width: 35%;">Main Subjects</th>
-                                        <th style="border: 1px solid #7A7D81; padding: 4px; width: 10%;">PA (10)</th>
-                                        <th style="border: 1px solid #7A7D81; padding: 4px; width: 10%;">NB (5)</th>
-                                        <th style="border: 1px solid #7A7D81; padding: 4px; width: 10%;">SE (5)</th>
-                                        <th style="border: 1px solid #7A7D81; padding: 4px; width: 15%; font-weight: bold;">$finalExamLabel (80)</th>
-                                        <th style="border: 1px solid #7A7D81; padding: 4px; width: 12%; font-weight: bold;">Total (100)</th>
-                                        <th style="border: 1px solid #7A7D81; padding: 4px; width: 8%; font-weight: bold;">Grade</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 4px; text-align: left; width: 40%;">Main Subjects</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 4px; width: 12%;">${if (activeTermName == "Term 1") "UT 1" else "UT 3"}</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 4px; width: 12%;">${if (activeTermName == "Term 1") "UT 2" else "UT 4"}</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 4px; width: 15%; font-weight: bold;">$activeTermName</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 4px; width: 12%; font-weight: bold;">Total</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 4px; width: 9%; font-weight: bold;">Grade</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     $subjectsRows
                                     <tr style="font-weight: bold; background: #F8F9FA;">
                                         <td style="border: 1px solid #7A7D81; padding: 5px; text-align: left;">Total</td>
-                                        <td style="border: 1px solid #7A7D81; padding: 5px;"></td>
                                         <td style="border: 1px solid #7A7D81; padding: 5px;"></td>
                                         <td style="border: 1px solid #7A7D81; padding: 5px;"></td>
                                         <td style="border: 1px solid #7A7D81; padding: 5px;"></td>
