@@ -109,6 +109,8 @@ object ExcelBackupHelper {
             val marks = database.markDao.getAllMarksFlow().first()
             val examConfigs = database.examConfigDao.getAllExamConfigsFlow().first()
             val sectionSubjects = database.sectionSubjectDao.getAllSectionSubjectsFlow().first()
+            val attendanceRecords = database.attendanceDao.getAllAttendanceFlow().first()
+            val disciplineRecords = database.disciplineDao.getAllDisciplineFlow().first()
 
             // 1. Export School Settings snapshot
             val schoolSettingRow = listOf(
@@ -272,6 +274,80 @@ object ExcelBackupHelper {
                         ""
                     )
                     writer.write(configRow.joinToString(",") { escapeCsv(it) } + "\n")
+                }
+            }
+
+            // 6. Export Attendance snapshots
+            if (attendanceRecords.isEmpty()) {
+                val attendanceRow = listOf(
+                    timestamp,
+                    operationType,
+                    "AttendanceRecord",
+                    "EMPTY",
+                    "No attendance records yet",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "SUCCESS",
+                    ""
+                )
+                writer.write(attendanceRow.joinToString(",") { escapeCsv(it) } + "\n")
+            } else {
+                for (record in attendanceRecords) {
+                    val attendanceRow = listOf(
+                        timestamp,
+                        operationType,
+                        "AttendanceRecord",
+                        record.id.toString(),
+                        record.studentId.toString(),
+                        record.date,
+                        record.status,
+                        record.termName,
+                        "",
+                        "",
+                        "SUCCESS",
+                        ""
+                    )
+                    writer.write(attendanceRow.joinToString(",") { escapeCsv(it) } + "\n")
+                }
+            }
+
+            // 7. Export Discipline snapshots
+            if (disciplineRecords.isEmpty()) {
+                val disciplineRow = listOf(
+                    timestamp,
+                    operationType,
+                    "DisciplineRecord",
+                    "EMPTY",
+                    "No discipline records yet",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "SUCCESS",
+                    ""
+                )
+                writer.write(disciplineRow.joinToString(",") { escapeCsv(it) } + "\n")
+            } else {
+                for (record in disciplineRecords) {
+                    val disciplineRow = listOf(
+                        timestamp,
+                        operationType,
+                        "DisciplineRecord",
+                        record.id.toString(),
+                        record.studentId.toString(),
+                        record.date,
+                        record.incidentDescription,
+                        record.grade,
+                        record.termName,
+                        "",
+                        "SUCCESS",
+                        ""
+                    )
+                    writer.write(disciplineRow.joinToString(",") { escapeCsv(it) } + "\n")
                 }
             }
 
