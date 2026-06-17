@@ -148,4 +148,10 @@
     <string name="pa_term_1">PA Term-1</string>
     <string name="pa_term_2">PA Term-2</string>
     <string name="max_marks_pa1">Max Marks in PA1</string>
+    <string name="module_attendance">Attendance &amp; Conduct</string>
+    <string name="module_attendance_desc">Daily Register &amp; Discipline</string>
+    <string name="subject_art_education">Art Education</string>
+    <string name="subject_games_health">Games/Health</string>
+    <string name="attendance_under_construction">Module Under Construction</string>
+    <string name="attendance_construction_desc">The Attendance and Discipline management interface will be available in the next update.</string>
 </resources>

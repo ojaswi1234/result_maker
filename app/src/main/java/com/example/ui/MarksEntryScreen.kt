@@ -555,7 +555,9 @@ fun MarksEntryScreen(
                                     // Input Col
                                     val max = getMaxMarksForAssessment(activeExamType)
                                     val score = viewModel.getMarksForExam(student.id, selectedSubject!!, activeExamType)
-                                    val isCoScholastic = selectedSubject == "Art Education" || selectedSubject == "Games/Health"
+                                    val artEducation = stringResource(R.string.subject_art_education)
+                                    val gamesHealth = stringResource(R.string.subject_games_health)
+                                    val isCoScholastic = selectedSubject == artEducation || selectedSubject == gamesHealth
 
                                     if (isCoScholastic) {
                                         GradeSelectionCell(

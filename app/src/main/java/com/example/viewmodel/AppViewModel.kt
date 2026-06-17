@@ -3,6 +3,7 @@ package com.example.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.R
 import com.example.data.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -383,8 +384,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         "Computer Science",
         "Geography",
         "Arts",
-        "Art Education",
-        "Games/Health"
+        application.getString(R.string.subject_art_education),
+        application.getString(R.string.subject_games_health)
     )
 
     // Section Subjects management

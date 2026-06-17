@@ -147,4 +147,10 @@
     <string name="pa_term_1">पी.ए. टर्म-1</string>
     <string name="pa_term_2">पी.ए. टर्म-2</string>
     <string name="max_marks_pa1">पी.ए.1 में अधिकतम अंक</string>
+    <string name="module_attendance">उपस्थिति और आचरण</string>
+    <string name="module_attendance_desc">दैनिक रजिस्टर और अनुशासन</string>
+    <string name="subject_art_education">कला शिक्षा</string>
+    <string name="subject_games_health">खेल/स्वास्थ्य</string>
+    <string name="attendance_under_construction">मॉड्यूल निर्माणाधीन है</string>
+    <string name="attendance_construction_desc">उपस्थिति और अनुशासन प्रबंधन इंटरफ़ेस अगले अपडेट में उपलब्ध होगा।</string>
 </resources>

@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -56,6 +57,7 @@ fun MainDashboardScreen(
     onNavigateToMarksEntry: () -> Unit,
     onNavigateToResultGenerator: () -> Unit,
     onNavigateToAnalysis: () -> Unit,
+    onNavigateToAttendance: () -> Unit,
     onNavigateToExamSettings: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -312,206 +314,207 @@ fun MainDashboardScreen(
                         containerColor = MaterialTheme.colorScheme.surface
                     )
                 )
-            }
-        ) { innerPadding ->
-            Column(
+                }
+                ) { innerPadding ->
+                LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .background(MaterialTheme.colorScheme.background)
-                    .padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
-            ) {
-            // HERO CARD: SCHOOL DETAILS (DYNAMIC & EDITABLE LOGO, NAME, SESSION)
-            ElevatedCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(
-                        width = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant,
-                        shape = RoundedCornerShape(24.dp)
-                    )
-                    .testTag("school_info_card"),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.elevatedCardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.25f)
-                )
-            ) {
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    // Edit trigger button (floating inside hero card top-right)
-                    IconButton(
-                        onClick = { showEditDialog = true },
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(12.dp)
-                            .testTag("edit_school_settings")
-                            .background(
-                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-                                shape = CircleShape
-                            )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = stringResource(R.string.edit_details),
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    Row(
+                    .background(MaterialTheme.colorScheme.background),
+                contentPadding = PaddingValues(20.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                // HERO CARD: SCHOOL DETAILS (Full width)
+                item(span = { GridItemSpan(2) }) {
+                    ElevatedCard(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(24.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(18.dp)
-                    ) {
-                        // School Logo (Dynamic / Editable color & emoji)
-                        val brandColor = try {
-                            Color(android.graphics.Color.parseColor(schoolSetting.logoColorHex))
-                        } catch (e: Exception) {
-                            MaterialTheme.colorScheme.primary
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .size(76.dp)
-                                .background(
-                                    brush = Brush.radialGradient(
-                                        colors = listOf(brandColor.copy(alpha = 0.9f), brandColor)
-                                    ),
-                                    shape = RoundedCornerShape(20.dp)
-                                )
-                                .border(
-                                    width = 2.dp,
-                                    color = MaterialTheme.colorScheme.surface,
-                                    shape = RoundedCornerShape(20.dp)
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (schoolSetting.schoolLogoBase64.isNotEmpty()) {
-                                val logoBitmap = remember(schoolSetting.schoolLogoBase64) {
-                                    try {
-                                        val bytes = Base64.decode(schoolSetting.schoolLogoBase64, Base64.DEFAULT)
-                                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size).asImageBitmap()
-                                    } catch (e: Exception) {
-                                        null
-                                    }
-                                }
-                                if (logoBitmap != null) {
-                                    Image(
-                                        bitmap = logoBitmap,
-                                        contentDescription = stringResource(R.string.school_logo),
-                                        modifier = Modifier.fillMaxSize().padding(4.dp),
-                                        contentScale = ContentScale.Fit
-                                    )
-                                } else {
-                                    Text(
-                                        text = schoolSetting.logoEmoji,
-                                        fontSize = 38.sp,
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
-                            } else {
-                                Text(
-                                    text = schoolSetting.logoEmoji,
-                                    fontSize = 38.sp,
-                                    textAlign = TextAlign.Center
-                                )
-                            }
-                        }
-
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(
-                                text = schoolSetting.schoolName,
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            .border(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant,
+                                shape = RoundedCornerShape(24.dp)
                             )
-                            
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            .testTag("school_info_card"),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.elevatedCardColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.25f)
+                        )
+                    ) {
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            // Edit trigger button (floating inside hero card top-right)
+                            IconButton(
+                                onClick = { showEditDialog = true },
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(12.dp)
+                                    .testTag("edit_school_settings")
+                                    .background(
+                                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                                        shape = CircleShape
+                                    )
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.CalendarToday,
-                                    contentDescription = stringResource(R.string.session_label),
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Text(
-                                    text = stringResource(R.string.session_label) + " " + schoolSetting.session,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = stringResource(R.string.edit_details),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
 
-                            if (schoolSetting.location.isNotEmpty()) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(18.dp)
+                            ) {
+                                // School Logo (Dynamic / Editable color & emoji)
+                                val brandColor = try {
+                                    Color(android.graphics.Color.parseColor(schoolSetting.logoColorHex))
+                                } catch (e: Exception) {
+                                    MaterialTheme.colorScheme.primary
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .size(76.dp)
+                                        .background(
+                                            brush = Brush.radialGradient(
+                                                colors = listOf(brandColor.copy(alpha = 0.9f), brandColor)
+                                            ),
+                                            shape = RoundedCornerShape(20.dp)
+                                        )
+                                        .border(
+                                            width = 2.dp,
+                                            color = MaterialTheme.colorScheme.surface,
+                                            shape = RoundedCornerShape(20.dp)
+                                        ),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Place,
-                                        contentDescription = stringResource(R.string.location_label),
-                                        tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
-                                        modifier = Modifier.size(14.dp)
-                                    )
+                                    if (schoolSetting.schoolLogoBase64.isNotEmpty()) {
+                                        val logoBitmap = remember(schoolSetting.schoolLogoBase64) {
+                                            try {
+                                                val bytes = Base64.decode(schoolSetting.schoolLogoBase64, Base64.DEFAULT)
+                                                BitmapFactory.decodeByteArray(bytes, 0, bytes.size).asImageBitmap()
+                                            } catch (e: Exception) {
+                                                null
+                                            }
+                                        }
+                                        if (logoBitmap != null) {
+                                            Image(
+                                                bitmap = logoBitmap,
+                                                contentDescription = stringResource(R.string.school_logo),
+                                                modifier = Modifier.fillMaxSize().padding(4.dp),
+                                                contentScale = ContentScale.Fit
+                                            )
+                                        } else {
+                                            Text(
+                                                text = schoolSetting.logoEmoji,
+                                                fontSize = 38.sp,
+                                                textAlign = TextAlign.Center
+                                            )
+                                        }
+                                    } else {
+                                        Text(
+                                            text = schoolSetting.logoEmoji,
+                                            fontSize = 38.sp,
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                }
+
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
                                     Text(
-                                        text = schoolSetting.location,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Normal,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                                        text = schoolSetting.schoolName,
+                                        fontSize = 22.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
                                     )
+
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CalendarToday,
+                                            contentDescription = stringResource(R.string.session_label),
+                                            tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Text(
+                                            text = stringResource(R.string.session_label) + " " + schoolSetting.session,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                                        )
+                                    }
+
+                                    if (schoolSetting.location.isNotEmpty()) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Place,
+                                                contentDescription = stringResource(R.string.location_label),
+                                                tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Text(
+                                                text = schoolSetting.location,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Normal,
+                                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
 
-            // Coordinator details
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = stringResource(R.string.active_user),
-                    tint = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.size(16.dp)
-                )
-                Text(
-                    text = stringResource(R.string.signed_in_format).format(userEmail),
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+                // Coordinator details (Full width)
+                item(span = { GridItemSpan(2) }) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = stringResource(R.string.active_user),
+                            tint = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = stringResource(R.string.signed_in_format).format(userEmail),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
 
-            Spacer(modifier = Modifier.height(4.dp))
+                item(span = { GridItemSpan(2) }) {
+                    Text(
+                        text = stringResource(R.string.academic_modules),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
 
-            Text(
-                text = stringResource(R.string.academic_modules),
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-
-            // THE FOUR KEY BUTTONS IN A VISUALLY POLISHED GRID
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
+                // MODULE CARDS
                 item {
                     DashboardModuleCard(
                         title = stringResource(R.string.module_students),
@@ -558,17 +561,16 @@ fun MainDashboardScreen(
 
                 item {
                     DashboardModuleCard(
-                        title = "Attendance & Conduct",
-                        subtitle = "Daily Register & Discipline",
+                        title = stringResource(R.string.module_attendance),
+                        subtitle = stringResource(R.string.module_attendance_desc),
                         icon = Icons.Default.HowToReg,
                         colorAccent = Color(0xFF8E24AA),
-                        onClick = { /* Navigate to Attendance */ },
+                        onClick = onNavigateToAttendance,
                         testTag = "dashboard_attendance_button"
                     )
                 }
-            }
-        }
 
+                }
         // EDIT DETAILS DIALOG
         if (showEditDialog) {
             EditSchoolDetailsDialog(

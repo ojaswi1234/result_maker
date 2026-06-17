@@ -147,4 +147,10 @@
     <string name="pa_term_1">PA Trimestre-1</string>
     <string name="pa_term_2">PA Trimestre-2</string>
     <string name="max_marks_pa1">Puntaje Máximo en PA1</string>
+    <string name="module_attendance">Asistencia y Conducta</string>
+    <string name="module_attendance_desc">Registro Diario y Disciplina</string>
+    <string name="subject_art_education">Educación Artística</string>
+    <string name="subject_games_health">Juegos/Salud</string>
+    <string name="attendance_under_construction">Módulo en Construcción</string>
+    <string name="attendance_construction_desc">La interfaz de gestión de asistencia y disciplina estará disponible en la próxima actualización.</string>
 </resources>
