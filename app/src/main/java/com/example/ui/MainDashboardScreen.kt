@@ -59,6 +59,7 @@ fun MainDashboardScreen(
     onNavigateToAnalysis: () -> Unit,
     onNavigateToAttendance: () -> Unit,
     onNavigateToExamSettings: () -> Unit,
+    onNavigateToReportSettings: () -> Unit,
     onLogout: () -> Unit
 ) {
     val schoolSetting by viewModel.schoolSetting.collectAsState()
@@ -184,6 +185,19 @@ fun MainDashboardScreen(
                         }
                     },
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("drawer_exam_setting_button")
+                )
+
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Default.Tune, contentDescription = "") },
+                    label = { Text("Report Settings") },
+                    selected = false,
+                    onClick = {
+                        scope.launch {
+                            drawerState.close()
+                            onNavigateToReportSettings()
+                        }
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("drawer_report_setting_button")
                 )
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))

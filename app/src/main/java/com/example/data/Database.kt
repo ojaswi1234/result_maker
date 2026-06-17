@@ -27,7 +27,9 @@ data class Student(
     val className: String,
     val sectionName: String,
     val fatherName: String = "",
-    val motherName: String = ""
+    val motherName: String = "",
+    val admissionNumber: String? = "",
+    val mobileNumber: String? = ""
 )
 
 @Entity(
@@ -249,7 +251,7 @@ interface SectionSubjectDao {
 
 @Database(
     entities = [SchoolSetting::class, Student::class, Mark::class, ExamConfig::class, SectionSubject::class, AttendanceRecord::class, DisciplineRecord::class],
-    version = 8, // Incremented version to add Attendance and Discipline entities
+    version = 9, // Incremented version to add Admission and Mobile fields to Student
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

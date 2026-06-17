@@ -128,11 +128,30 @@ fun ResultGeneratorScreen(
 
     var selectedClassSection by remember { mutableStateOf<Pair<String, String>?>(null) }
     var selectedStudent by remember { mutableStateOf<Student?>(null) }
-    var selectedReportLayout by remember { mutableStateOf("Combined (Term 1 + Term 2)") }
+    var selectedReportLayout by remember { mutableStateOf("Combined (Variable Weightage)") }
+
+    val reportLayouts = remember(allExamConfigs, allMarks) {
+        val dynamicNames = allExamConfigs.flatMap { config ->
+            val t1 = (1..config.t1PaCount).map { "PT $it" }
+            val t2 = (1..config.t2PaCount).map { "PT ${it + 2}" }
+            t1 + t2
+        }
+        val markExams = allMarks.map { it.examType }.filter { it.startsWith("PT") || it.startsWith("UT") }
+        (dynamicNames + markExams).distinct().sorted() + listOf("Term 1", "Annual", "Combined (Variable Weightage)")
+    }
 
     var classMenuExpanded by remember { mutableStateOf(false) }
     var studentMenuExpanded by remember { mutableStateOf(false) }
     var layoutMenuExpanded by remember { mutableStateOf(false) }
+
+    // Bulk Attendance Entry State
+    val showTotalClassesDialog = remember { mutableStateOf(false) }
+    val showAttendanceSheet = remember { mutableStateOf(false) }
+    val globalTotalClasses = remember { mutableStateOf("") }
+    var isSyncingAttendance by remember { mutableStateOf(false) }
+    
+    // State to hold student-wise bulk entries
+    val attendanceInputs = remember { mutableStateMapOf<Int, Pair<String, String>>() }
 
     // Auto-select initial elements
     LaunchedEffect(classesList) {
@@ -489,6 +508,7 @@ fun ResultGeneratorScreen(
                                                 onClick = {
                                                     selectedClassSection = pair
                                                     classMenuExpanded = false
+                                                    showTotalClassesDialog.value = true
                                                 }
                                             )
                                         }
@@ -525,12 +545,13 @@ fun ResultGeneratorScreen(
                                         expanded = layoutMenuExpanded,
                                         onDismissRequest = { layoutMenuExpanded = false }
                                     ) {
-                                        listOf("Term 1", "Term 2", "Combined (Term 1 + Term 2)").forEach { layout ->
+                                        reportLayouts.forEach { layout ->
                                             DropdownMenuItem(
                                                 text = { Text(layout) },
                                                 onClick = {
                                                     selectedReportLayout = layout
                                                     layoutMenuExpanded = false
+                                                    showTotalClassesDialog.value = true
                                                 }
                                             )
                                         }
@@ -591,7 +612,7 @@ fun ResultGeneratorScreen(
             if (selectedStudent != null && selectedClassSection != null) {
                 item {
                     val student = selectedStudent!!
-                    val rankMap = getSectionRanks(classFilteredStudents, allMarks, selectedReportLayout, sectionSubjects, allSectionSubjects, allExamConfigs)
+                    val rankMap = getSectionRanks(classFilteredStudents, allMarks, selectedReportLayout, sectionSubjects, allSectionSubjects, allExamConfigs, viewModel.term1Weight.value, viewModel.term2Weight.value)
                     val studentRank = rankMap[student.id] ?: 1
 
                     Card(
@@ -688,8 +709,8 @@ fun ResultGeneratorScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Text(stringResource(R.string.subject_title), fontWeight = FontWeight.Bold, fontSize = 10.sp, modifier = Modifier.weight(1.5f))
-                                    Text("T1 (UT1+2+E1)", fontWeight = FontWeight.Bold, fontSize = 10.sp, modifier = Modifier.weight(1.5f), textAlign = TextAlign.End)
-                                    Text("T2 (UT3+4+E2)", fontWeight = FontWeight.Bold, fontSize = 10.sp, modifier = Modifier.weight(1.5f), textAlign = TextAlign.End)
+                                    Text("T1 (PT 1+2+FA 1)", fontWeight = FontWeight.Bold, fontSize = 10.sp, modifier = Modifier.weight(1.5f), textAlign = TextAlign.End)
+                                    Text("T2 (PT 3+4+FA 2)", fontWeight = FontWeight.Bold, fontSize = 10.sp, modifier = Modifier.weight(1.5f), textAlign = TextAlign.End)
                                     Text(stringResource(R.string.final_label), fontWeight = FontWeight.Bold, fontSize = 10.sp, modifier = Modifier.weight(0.8f), textAlign = TextAlign.End)
                                 }
 
@@ -891,6 +912,205 @@ fun ResultGeneratorScreen(
             }
         }
     }
+
+    // Total Classes Dialog
+    if (showTotalClassesDialog.value) {
+        AlertDialog(
+            onDismissRequest = { showTotalClassesDialog.value = false },
+            title = { Text("Enter Total Classes") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Type the total number of classes for this period.")
+                    OutlinedTextField(
+                        value = globalTotalClasses.value,
+                        onValueChange = { globalTotalClasses.value = it.filter { it.isDigit() } },
+                        label = { Text("Total Classes") },
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true
+                    )
+                    Text(
+                        text = "(Optional: Leave blank to use existing Attendance & Conduct data)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    showTotalClassesDialog.value = false
+                    showAttendanceSheet.value = true
+                }) {
+                    Text("Next")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showTotalClassesDialog.value = false
+                    showAttendanceSheet.value = true
+                }) {
+                    Text("Skip")
+                }
+            }
+        )
+    }
+
+    // Modal Bottom Sheet for Bulk Attendance
+    if (showAttendanceSheet.value) {
+        val dbAggregates = remember(selectedClassSection) {
+            selectedClassSection?.let { viewModel.getAggregateAttendanceFromDB(it.first, it.second) } ?: emptyMap()
+        }
+        
+        // Initialize entries once when sheet opens
+        LaunchedEffect(showAttendanceSheet.value) {
+            if (showAttendanceSheet.value && attendanceInputs.isEmpty()) {
+                classFilteredStudents.forEach { student ->
+                    val dbAgg = dbAggregates[student.id] ?: Pair(0, 0)
+                    val defaultTotal = if (globalTotalClasses.value.isNotEmpty()) globalTotalClasses.value else dbAgg.second.toString()
+                    val defaultAttended = dbAgg.first.toString()
+                    attendanceInputs[student.id] = Pair(defaultAttended, defaultTotal)
+                }
+            }
+        }
+
+        ModalBottomSheet(
+            onDismissRequest = { showAttendanceSheet.value = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            dragHandle = { BottomSheetDefaults.DragHandle() }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .navigationBarsPadding()
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Bulk Attendance",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    FilledTonalButton(
+                        onClick = {
+                            scope.launch {
+                                isSyncingAttendance = true
+                                selectedClassSection?.let {
+                                    val syncedData = viewModel.fetchAggregateAttendanceForClass(it.first, it.second)
+                                    syncedData.forEach { (studentId, pair) ->
+                                        attendanceInputs[studentId] = pair
+                                    }
+                                }
+                                isSyncingAttendance = false
+                            }
+                        },
+                        enabled = !isSyncingAttendance,
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Sync", fontSize = 12.sp)
+                    }
+                }
+
+                if (isSyncingAttendance) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(
+                                color = MaterialTheme.colorScheme.primary,
+                                strokeWidth = 3.dp
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                "Calculating attendance...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f, fill = false),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(classFilteredStudents) { student ->
+                            val entry = attendanceInputs[student.id] ?: Pair("", "")
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text(
+                                    text = student.name,
+                                    modifier = Modifier.weight(1f),
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                                
+                                OutlinedTextField(
+                                    value = entry.first,
+                                    onValueChange = { newValue ->
+                                        attendanceInputs[student.id] = Pair(newValue.filter { it.isDigit() }, entry.second)
+                                    },
+                                    label = { Text("Attended", fontSize = 10.sp) },
+                                    modifier = Modifier.width(90.dp),
+                                    textStyle = MaterialTheme.typography.bodyMedium,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    singleLine = true
+                                )
+
+                                OutlinedTextField(
+                                    value = entry.second,
+                                    onValueChange = { newValue ->
+                                        attendanceInputs[student.id] = Pair(entry.first, newValue.filter { it.isDigit() })
+                                    },
+                                    label = { Text("Total", fontSize = 10.sp) },
+                                    modifier = Modifier.width(90.dp),
+                                    textStyle = MaterialTheme.typography.bodyMedium,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    singleLine = true
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Button(
+                    onClick = {
+                        val summaries = attendanceInputs.map { (studentId, pair) ->
+                            MonthlyAttendanceSummary(
+                                studentId = studentId,
+                                attendedClasses = pair.first.toIntOrNull() ?: 0,
+                                totalClasses = pair.second.toIntOrNull() ?: 0
+                            )
+                        }
+                        viewModel.updateMonthlyAttendanceBulk(summaries)
+                        showAttendanceSheet.value = false
+                        Toast.makeText(context, "Attendance saved for PDF injection!", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                    enabled = !isSyncingAttendance,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Save Attendance")
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -923,7 +1143,7 @@ data class TermMarks(
     val internal: Double,
     val computedPa: Double
 ) {
-    val total: Double get() = computedPa + theory + internal
+    val total: Double get() = ut1 + ut2 + theory + internal
 }
 
 fun getTermMarks(
@@ -938,9 +1158,9 @@ fun getTermMarks(
         it.subjectName.equals(subjectName, ignoreCase = true)
     }
 
-    val ut1Type = if (termName == "Term 1") "UT1" else "UT3"
-    val ut2Type = if (termName == "Term 1") "UT2" else "UT4"
-    val theoryType = if (termName == "Term 1") "Half Yearly" else "Annual Exam"
+    val ut1Type = if (termName == "Term 1") "PT 1" else "PT 3"
+    val ut2Type = if (termName == "Term 1") "PT 2" else "PT 4"
+    val theoryType = if (termName == "Term 1") "FA 1" else "FA 2"
     val intType = if (termName == "Term 1") "Term 1 Internal" else "Term 2 Internal"
 
     val ut1Mark = studentMarks.find { it.examType == ut1Type }?.marksObtained ?: 0.0
@@ -994,33 +1214,55 @@ fun getSectionRanks(
     reportLayout: String,
     subjectsList: List<String>,
     allSectionSubjects: List<com.example.data.SectionSubject>,
-    allExamConfigs: List<ExamConfig>
+    allExamConfigs: List<ExamConfig>,
+    t1Weight: Int = 40,
+    t2Weight: Int = 60
 ): Map<Int, Int> {
     val percentages = students.associate { student ->
         var totalObtained = 0.0
         var totalMax = 0.0
         val config = allExamConfigs.find { it.className == student.className }
 
+        val t1Factor = t1Weight / 100.0
+        val t2Factor = t2Weight / 100.0
+
         for (sub in subjectsList) {
-            val weightage = allSectionSubjects.find { 
-                it.className.equals(student.className, ignoreCase = true) && 
-                it.sectionName.equals(student.sectionName, ignoreCase = true) && 
-                it.subjectName.equals(sub, ignoreCase = true) 
+            val weightage = allSectionSubjects.find {
+                it.className.equals(student.className, ignoreCase = true) &&
+                it.sectionName.equals(student.sectionName, ignoreCase = true) &&
+                it.subjectName.equals(sub, ignoreCase = true)
             }?.maxMarks ?: 100.0
 
-            if (reportLayout.contains("Term 1")) {
+            if (reportLayout == "Term 1") {
                 val comp = getTermMarks(student.id, sub, "Term 1", allMarks, config)
                 totalObtained += comp.total
                 totalMax += weightage
-            } else if (reportLayout.contains("Term 2")) {
+            } else if (reportLayout == "Annual" || reportLayout == "Term 2") {
                 val comp = getTermMarks(student.id, sub, "Term 2", allMarks, config)
                 totalObtained += comp.total
                 totalMax += weightage
-            } else { // Combined
+            } else if (reportLayout.contains("Combined")) {
                 val comp1 = getTermMarks(student.id, sub, "Term 1", allMarks, config)
                 val comp2 = getTermMarks(student.id, sub, "Term 2", allMarks, config)
-                totalObtained += comp1.total + comp2.total
-                totalMax += 2.0 * weightage
+                totalObtained += (comp1.total * t1Factor) + (comp2.total * t2Factor)
+                totalMax += weightage
+            } else {
+                // Individual/Single Exam (PT 1, PT 2, UT 1, etc.)
+                val ptTerm = if (reportLayout == "PT 1" || reportLayout == "PT 2" || reportLayout == "UT 1") "Term 1" else "Term 2"
+                val comp = getTermMarks(student.id, sub, ptTerm, allMarks, config)
+                val ptMark = when (reportLayout) {
+                    "PT 1", "UT 1" -> comp.ut1
+                    "PT 2" -> comp.ut2
+                    "PT 3" -> comp.ut1
+                    "PT 4" -> comp.ut2
+                    else -> {
+                        // Attempt to find mark in any column if it's a dynamic custom name
+                        val mark = allMarks.find { it.studentId == student.id && it.subjectName == sub && it.examType == reportLayout }
+                        mark?.marksObtained ?: 0.0
+                    }
+                }
+                totalObtained += ptMark
+                totalMax += weightage
             }
         }
         val pct = if (totalMax > 0) (totalObtained / totalMax) * 100.0 else 0.0
@@ -1048,11 +1290,16 @@ fun printResultPdf(
     reportLayout: String,
     subjectsList: List<String>,
     allSectionSubjects: List<com.example.data.SectionSubject>,
-    allExamConfigs: List<ExamConfig>
+    allExamConfigs: List<ExamConfig>,
+    t1Weight: Int = 40,
+    t2Weight: Int = 60
 ) {
     try {
         val pageBlocks = StringBuilder()
-        val ranksMap = getSectionRanks(students, allMarks, reportLayout, subjectsList, allSectionSubjects, allExamConfigs)
+        val ranksMap = getSectionRanks(students, allMarks, reportLayout, subjectsList, allSectionSubjects, allExamConfigs, t1Weight, t2Weight)
+
+        val t1Factor = t1Weight / 100.0
+        val t2Factor = t2Weight / 100.0
 
         for (student in students) {
             val rankValue = ranksMap[student.id] ?: 1
@@ -1075,7 +1322,7 @@ fun printResultPdf(
                     val config = allExamConfigs.find { it.className == student.className }
                     val comp1 = getTermMarks(student.id, sub, "Term 1", allMarks, config)
                     val comp2 = getTermMarks(student.id, sub, "Term 2", allMarks, config)
-                    val subjectCombinedTotal = (comp1.total * 0.4) + (comp2.total * 0.6)
+                    val subjectCombinedTotal = (comp1.total * t1Factor) + (comp2.total * t2Factor)
                     val subjectCombinedGrade = computeGrade((subjectCombinedTotal / weightage) * 100.0)
 
                     t1TotalSum += comp1.total
@@ -1104,7 +1351,7 @@ fun printResultPdf(
 
                 val t1Pct = if (termMaxSum > 0) (t1TotalSum / termMaxSum) * 100.0 else 0.0
                 val t2Pct = if (termMaxSum > 0) (t2TotalSum / termMaxSum) * 100.0 else 0.0
-                val finalTotalSum = (t1TotalSum * 0.4) + (t2TotalSum * 0.6)
+                val finalTotalSum = (t1TotalSum * t1Factor) + (t2TotalSum * t2Factor)
                 val finalPct = if (termMaxSum > 0) (finalTotalSum / termMaxSum) * 100.0 else 0.0
 
                 val coScholGrade1 = if (t1Pct >= 75.0) "A" else "B"
@@ -1153,7 +1400,7 @@ fun printResultPdf(
                             <table style="width: 100%; border-collapse: collapse; margin-bottom: 6px; font-size: 11.5px; border-top: 2px solid #7A7D81; border-bottom: 2px solid #7A7D81; padding: 4px 0;">
                                 <tr>
                                     <td style="padding: 3px 0; font-weight: bold; width: 50%;">Student's Name : <span style="font-weight: bold; text-transform: uppercase;">${student.name}</span></td>
-                                    <td style="padding: 3px 0; font-weight: bold; width: 50%;">Regn. No. &nbsp;&nbsp;: <span style="font-weight: bold;">.${student.rollNumber}.</span></td>
+                                    <td style="padding: 3px 0; font-weight: bold; width: 50%;">Regn./Adm. No. : <span style="font-weight: bold;">${student.admissionNumber ?: student.rollNumber}</span></td>
                                 </tr>
                                 <tr>
                                     <td style="padding: 3px 0; font-weight: bold;">Father's Name &nbsp;: <span style="font-weight: normal; text-transform: uppercase;">${student.fatherName}</span></td>
@@ -1175,15 +1422,15 @@ fun printResultPdf(
                                         <th style="border: 1px solid #7A7D81; padding: 4px;" colspan="2">Final Result</th>
                                     </tr>
                                     <tr style="background: #F8F9FA; border: 1px solid #7A7D81; font-weight: bold; font-size: 9px;">
-                                        <th style="border: 1px solid #7A7D81; padding: 3px;">UT1</th>
-                                        <th style="border: 1px solid #7A7D81; padding: 3px;">UT2</th>
-                                        <th style="border: 1px solid #7A7D81; padding: 3px;">HY</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 3px;">PT 1</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 3px;">PT 2</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 3px;">FA 1</th>
                                         <th style="border: 1px solid #7A7D81; padding: 3px;">T1 Int</th>
                                         <th style="border: 1px solid #7A7D81; padding: 3px; font-weight: bold;">T1 Total</th>
                                         
-                                        <th style="border: 1px solid #7A7D81; padding: 3px;">UT3</th>
-                                        <th style="border: 1px solid #7A7D81; padding: 3px;">UT4</th>
-                                        <th style="border: 1px solid #7A7D81; padding: 3px;">Annual</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 3px;">PT 3</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 3px;">PT 4</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 3px;">FA 2</th>
                                         <th style="border: 1px solid #7A7D81; padding: 3px;">T2 Int</th>
                                         <th style="border: 1px solid #7A7D81; padding: 3px; font-weight: bold;">T2 Total</th>
                                         
@@ -1349,9 +1596,9 @@ fun printResultPdf(
                     </div>
                 """.trimIndent())
             } else {
-                // SINGLE TERM COMPILER (TERM 1 OR TERM 2 UNIQUE LAYOUT)
-                val activeTermName = if (reportLayout.contains("Term 1")) "Term 1" else "Term 2"
-                val finalExamLabel = if (reportLayout.contains("Term 1")) "HY" else "Annual"
+                // SINGLE TERM COMPILER (TERM 1 OR ANNUAL UNIQUE LAYOUT)
+                val activeTermName = if (reportLayout == "Term 1" || reportLayout == "PT 1" || reportLayout == "PT 2" || reportLayout == "UT 1") "Term 1" else "Term 2"
+                val finalExamLabel = if (activeTermName == "Term 1") "FA 1" else "FA 2"
                 val subjectsRows = StringBuilder()
                 var totalSum = 0.0
                 var termMaxSum = 0.0
@@ -1366,9 +1613,30 @@ fun printResultPdf(
 
                     val config = allExamConfigs.find { it.className == student.className }
                     val comp = getTermMarks(student.id, sub, activeTermName, allMarks, config)
-                    totalSum += comp.total
-
-                    subjectsRows.append("""
+                    
+                    val isSingleExam = reportLayout != "Term 1" && reportLayout != "Annual" && reportLayout != "Term 2"
+                    if (isSingleExam) {
+                        val ptMark = when (reportLayout) {
+                            "PT 1", "UT 1" -> comp.ut1
+                            "PT 2" -> comp.ut2
+                            "PT 3" -> comp.ut1
+                            "PT 4" -> comp.ut2
+                            else -> {
+                                val mark = allMarks.find { it.studentId == student.id && it.subjectName == sub && it.examType == reportLayout }
+                                mark?.marksObtained ?: 0.0
+                            }
+                        }
+                        totalSum += ptMark
+                        subjectsRows.append("""
+                        <tr>
+                            <td style="border: 1px solid #7A7D81; padding: 5px; text-align: left; font-weight: bold; font-size: 11px;">$sub</td>
+                            <td style="border: 1px solid #7A7D81; padding: 5px; font-weight: bold; background: #FAF9F6; font-size: 11px;">${Math.round(ptMark)} <span style="font-weight: normal; font-size: 9px; color: #666;">/ ${weightage.toInt()}</span></td>
+                            <td style="border: 1px solid #7A7D81; padding: 5px; font-weight: bold; font-size: 11px; color: #1E3A8A;">${computeGrade((ptMark / weightage) * 100.0)}</td>
+                        </tr>
+                        """.trimIndent())
+                    } else {
+                        totalSum += comp.total
+                        subjectsRows.append("""
                         <tr>
                             <td style="border: 1px solid #7A7D81; padding: 5px; text-align: left; font-weight: bold; font-size: 11px;">$sub</td>
                             <td style="border: 1px solid #7A7D81; padding: 5px; font-size: 11px;">${Math.round(comp.ut1)}</td>
@@ -1378,7 +1646,8 @@ fun printResultPdf(
                             <td style="border: 1px solid #7A7D81; padding: 5px; font-weight: bold; background: #FAF9F6; font-size: 11px;">${Math.round(comp.total)} <span style="font-weight: normal; font-size: 9px; color: #666;">/ ${weightage.toInt()}</span></td>
                             <td style="border: 1px solid #7A7D81; padding: 5px; font-weight: bold; font-size: 11px; color: #1E3A8A;">${computeGrade((comp.total / weightage) * 100.0)}</td>
                         </tr>
-                    """.trimIndent())
+                        """.trimIndent())
+                    }
                 }
 
                 val percentage = if (termMaxSum > 0) (totalSum / termMaxSum) * 100.0 else 0.0
@@ -1440,28 +1709,46 @@ fun printResultPdf(
                             <!-- Subjects Table -->
                             <table style="width: 100%; border-collapse: collapse; margin-bottom: 6px; font-size: 10.5px; text-align: center;">
                                 <thead>
+                                    ${if (isSingleExam) """
                                     <tr style="background: #F1F3F5; border: 1px solid #7A7D81; font-weight: bold; font-size: 11px;">
                                         <th style="border: 1px solid #7A7D81; padding: 4px; text-align: left;" colspan="1">Scholastic Areas</th>
-                                        <th style="border: 1px solid #7A7D81; padding: 4px;" colspan="5">$activeTermName</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 4px;" colspan="2">$reportLayout</th>
+                                    </tr>
+                                    <tr style="background: #F8F9FA; border: 1px solid #7A7D81; font-weight: bold; font-size: 9.5px;">
+                                        <th style="border: 1px solid #7A7D81; padding: 4px; text-align: left; width: 60%;">Main Subjects</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 4px; width: 25%; font-weight: bold;">Marks Obtained</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 4px; width: 15%; font-weight: bold;">Grade</th>
+                                    </tr>
+                                    """ else """
+                                    <tr style="background: #F1F3F5; border: 1px solid #7A7D81; font-weight: bold; font-size: 11px;">
+                                        <th style="border: 1px solid #7A7D81; padding: 4px; text-align: left;" colspan="1">Scholastic Areas</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 4px;" colspan="5">${if (reportLayout == "Annual") "Annual Result" else activeTermName}</th>
                                     </tr>
                                     <tr style="background: #F8F9FA; border: 1px solid #7A7D81; font-weight: bold; font-size: 9.5px;">
                                         <th style="border: 1px solid #7A7D81; padding: 4px; text-align: left; width: 40%;">Main Subjects</th>
-                                        <th style="border: 1px solid #7A7D81; padding: 4px; width: 12%;">${if (activeTermName == "Term 1") "UT 1" else "UT 3"}</th>
-                                        <th style="border: 1px solid #7A7D81; padding: 4px; width: 12%;">${if (activeTermName == "Term 1") "UT 2" else "UT 4"}</th>
-                                        <th style="border: 1px solid #7A7D81; padding: 4px; width: 15%; font-weight: bold;">$activeTermName</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 4px; width: 12%;">${if (activeTermName == "Term 1") "PT 1" else "PT 3"}</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 4px; width: 12%;">${if (activeTermName == "Term 1") "PT 2" else "PT 4"}</th>
+                                        <th style="border: 1px solid #7A7D81; padding: 4px; width: 15%; font-weight: bold;">$finalExamLabel</th>
                                         <th style="border: 1px solid #7A7D81; padding: 4px; width: 12%; font-weight: bold;">Total</th>
                                         <th style="border: 1px solid #7A7D81; padding: 4px; width: 9%; font-weight: bold;">Grade</th>
                                     </tr>
+                                    """}
                                 </thead>
                                 <tbody>
                                     $subjectsRows
                                     <tr style="font-weight: bold; background: #F8F9FA;">
                                         <td style="border: 1px solid #7A7D81; padding: 5px; text-align: left;">Total</td>
+                                        ${if (isSingleExam) """
+                                        <td style="border: 1px solid #7A7D81; padding: 5px; background: #FAF9F6;">${Math.round(totalSum)}</td>
+                                        <td style="border: 1px solid #7A7D81; padding: 5px;">${String.format("%.2f%%", percentage)}</td>
+                                        """ else """
+                                        <td style="border: 1px solid #7A7D81; padding: 5px;"></td>
                                         <td style="border: 1px solid #7A7D81; padding: 5px;"></td>
                                         <td style="border: 1px solid #7A7D81; padding: 5px;"></td>
                                         <td style="border: 1px solid #7A7D81; padding: 5px;"></td>
                                         <td style="border: 1px solid #7A7D81; padding: 5px; background: #FAF9F6;">${Math.round(totalSum)}</td>
                                         <td style="border: 1px solid #7A7D81; padding: 5px;">${String.format("%.2f%%", percentage)}</td>
+                                        """}
                                     </tr>
                                 </tbody>
                             </table>
@@ -1690,7 +1977,7 @@ fun printCommonSheetPdf(
                 val studentMarks = allMarks.filter { it.studentId == student.id }
                 val annualResults = if (mode == "Term") viewModel.calculateAnnualResult(student.id) else emptyMap()
                 
-                val columns = if (mode == "UT") listOf("UT 1", "UT 2", "UT 3", "UT 4") else listOf("Term 1", "Term 2")
+                val columns = if (mode == "UT") listOf("PT 1", "PT 2", "PT 3", "PT 4") else listOf("Term 1", "Term 2")
                 val headerRows = StringBuilder()
                 columns.forEach { col ->
                     headerRows.append("""<th style="border: 1px solid #7A7D81; padding: 8px; background: #F1F3F5;">$col</th>""")
@@ -1724,7 +2011,7 @@ fun printCommonSheetPdf(
                             <div style="text-align: center; margin-bottom: 20px;">
                                 <h1 style="margin: 0; font-size: 20px;">${school.schoolName}</h1>
                                 <p style="margin: 5px 0; font-size: 14px;">${school.location}</p>
-                                <h2 style="margin: 10px 0; text-decoration: underline; font-size: 16px;">Common Sheet: $mode Results</h2>
+                                <h2 style="margin: 10px 0; text-decoration: underline; font-size: 16px;">Common Sheet: ${if (mode == "UT") "PT" else mode} Results</h2>
                                 <div style="display: flex; justify-content: space-between; margin-top: 20px; border-bottom: 2px solid #333; padding-bottom: 10px;">
                                     <span><b>Student:</b> ${student.name}</span>
                                     <span><b>Class:</b> ${student.className} - ${student.sectionName}</span>
@@ -1745,8 +2032,18 @@ fun printCommonSheetPdf(
                             </table>
                             
                             <div style="margin-top: 40px; display: flex; justify-content: space-between;">
-                                <div style="text-align: center; width: 200px; border-top: 1px solid #000; padding-top: 10px;">Class Teacher</div>
-                                <div style="text-align: center; width: 200px; border-top: 1px solid #000; padding-top: 10px;">Principal</div>
+                                <div style="text-align: center; width: 200px; display: flex; flex-direction: column; align-items: center;">
+                                    <div style="height: 40px; display: flex; align-items: center; justify-content: center; margin-bottom: 2px;">
+                                        ${if (school.teacherSignature.isNotEmpty()) """<img src="data:image/png;base64,${school.teacherSignature}" style="max-height: 40px; max-width: 130px; object-fit: contain;" />""" else ""}
+                                    </div>
+                                    <div style="border-top: 1px solid #000; width: 100%; text-align: center; padding-top: 10px;">Class Teacher</div>
+                                </div>
+                                <div style="text-align: center; width: 200px; display: flex; flex-direction: column; align-items: center;">
+                                    <div style="height: 40px; display: flex; align-items: center; justify-content: center; margin-bottom: 2px;">
+                                        ${if (school.principalSignature.isNotEmpty()) """<img src="data:image/png;base64,${school.principalSignature}" style="max-height: 40px; max-width: 130px; object-fit: contain;" />""" else ""}
+                                    </div>
+                                    <div style="border-top: 1px solid #000; width: 100%; text-align: center; padding-top: 10px;">Principal</div>
+                                </div>
                             </div>
                         </div>
                     </div>

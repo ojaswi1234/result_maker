@@ -127,6 +127,7 @@ fun MainAppHost(viewModel: AppViewModel) {
                     onNavigateToAnalysis = { navController.navigate("analysis") },
                     onNavigateToAttendance = { navController.navigate("attendance") },
                     onNavigateToExamSettings = { navController.navigate("exam_settings") },
+                    onNavigateToReportSettings = { navController.navigate("report_settings") },
                     onLogout = {
                         navController.navigate("login") {
                             popUpTo("dashboard") { inclusive = true }
@@ -135,9 +136,26 @@ fun MainAppHost(viewModel: AppViewModel) {
                 )
             }
 
+            // Report Configuration (Weightage)
+            composable("report_settings") {
+                ReportSettingsScreen(
+                    viewModel = viewModel,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+
             // Attendance and Conduct module
             composable("attendance") {
                 AttendanceConductScreen(
+                    viewModel = viewModel,
+                    onBack = { navController.popBackStack() },
+                    onNavigateToIndiscipline = { navController.navigate("indiscipline") }
+                )
+            }
+
+            // Indiscipline behavior logging
+            composable("indiscipline") {
+                IndisciplineReportScreen(
                     viewModel = viewModel,
                     onBack = { navController.popBackStack() }
                 )
@@ -162,6 +180,15 @@ fun MainAppHost(viewModel: AppViewModel) {
             // Student grading module
             composable("marks_entry") {
                 MarksEntryScreen(
+                    viewModel = viewModel,
+                    onBack = { navController.popBackStack() },
+                    onNavigateToStudentSearch = { navController.navigate("specific_student_grading") }
+                )
+            }
+
+            // Specific student search & edit
+            composable("specific_student_grading") {
+                SpecificStudentGradingScreen(
                     viewModel = viewModel,
                     onBack = { navController.popBackStack() }
                 )

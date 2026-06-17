@@ -380,18 +380,20 @@ object ExcelBackupHelper {
             val workbook: WritableWorkbook = Workbook.createWorkbook(file, wbSettings)
             val sheet = workbook.createSheet("Class Roster", 0)
 
-            val headers = listOf("Roll Number", "Student Name", "Father's Name", "Mother's Name", "Class", "Section")
+            val headers = listOf("Roll Number", "Admission No", "Student Name", "Father's Name", "Mother's Name", "Mobile No", "Class", "Section")
             headers.forEachIndexed { index, header ->
                 sheet.addCell(Label(index, 0, header))
             }
 
             students.forEachIndexed { rowIndex, student ->
                 sheet.addCell(Label(0, rowIndex + 1, student.rollNumber))
-                sheet.addCell(Label(1, rowIndex + 1, student.name))
-                sheet.addCell(Label(2, rowIndex + 1, student.fatherName))
-                sheet.addCell(Label(3, rowIndex + 1, student.motherName))
-                sheet.addCell(Label(4, rowIndex + 1, student.className))
-                sheet.addCell(Label(5, rowIndex + 1, student.sectionName))
+                sheet.addCell(Label(1, rowIndex + 1, student.admissionNumber ?: ""))
+                sheet.addCell(Label(2, rowIndex + 1, student.name))
+                sheet.addCell(Label(3, rowIndex + 1, student.fatherName))
+                sheet.addCell(Label(4, rowIndex + 1, student.motherName))
+                sheet.addCell(Label(5, rowIndex + 1, student.mobileNumber ?: ""))
+                sheet.addCell(Label(6, rowIndex + 1, student.className))
+                sheet.addCell(Label(7, rowIndex + 1, student.sectionName))
             }
 
             workbook.write()
@@ -399,6 +401,64 @@ object ExcelBackupHelper {
             file
         } catch (e: Exception) {
             Log.e(TAG, "Error generating roster Excel", e)
+            null
+        }
+    }
+
+    /**
+     * Generates a true Microsoft Excel (.xls) file for attendance records of a class section.
+     */
+    fun exportAttendanceToExcel(
+        context: Context,
+        className: String,
+        sectionName: String,
+        attendanceRecords: List<AttendanceRecord>,
+        students: List<Student>
+    ): File? {
+        return try {
+            val fileName = "Attendance_${className}_${sectionName}.xls".replace(" ", "_")
+            val file = File(context.getExternalFilesDir(null), fileName)
+            
+            val wbSettings = WorkbookSettings()
+            wbSettings.locale = Locale.getDefault()
+            
+            val workbook: WritableWorkbook = Workbook.createWorkbook(file, wbSettings)
+            val sheet = workbook.createSheet("Attendance Log", 0)
+
+            // Add Title Row
+            sheet.addCell(Label(0, 0, "Class: $className - Section: $sectionName"))
+
+            val headers = listOf("Date", "Student Name", "Roll No", "Status", "Term", "Total Classes Attended", "Total Classes")
+            headers.forEachIndexed { index, header ->
+                sheet.addCell(Label(index, 1, header))
+            }
+
+            // Pre-calculate aggregates for efficiency
+            val studentAggregates = attendanceRecords.groupBy { it.studentId }.mapValues { (_, records) ->
+                val attended = records.count { it.status.equals("Present", ignoreCase = true) }
+                val total = records.size
+                Pair(attended, total)
+            }
+
+            // Map records by date and student for organized view if needed
+            attendanceRecords.sortedByDescending { it.date }.forEachIndexed { rowIndex, record ->
+                val student = students.find { it.id == record.studentId }
+                val agg = studentAggregates[record.studentId] ?: Pair(0, 0)
+                
+                sheet.addCell(Label(0, rowIndex + 2, record.date))
+                sheet.addCell(Label(1, rowIndex + 2, student?.name ?: "Unknown"))
+                sheet.addCell(Label(2, rowIndex + 2, student?.rollNumber ?: "N/A"))
+                sheet.addCell(Label(3, rowIndex + 2, record.status))
+                sheet.addCell(Label(4, rowIndex + 2, record.termName))
+                sheet.addCell(Label(5, rowIndex + 2, agg.first.toString()))
+                sheet.addCell(Label(6, rowIndex + 2, agg.second.toString()))
+            }
+
+            workbook.write()
+            workbook.close()
+            file
+        } catch (e: Exception) {
+            Log.e(TAG, "Error generating attendance Excel", e)
             null
         }
     }

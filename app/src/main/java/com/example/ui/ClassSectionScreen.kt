@@ -346,8 +346,8 @@ fun ClassSectionScreen(
                 AddStudentDialog(
                     selectedClassSection = selectedClassSection,
                     onDismiss = { showAddStudentDialog = false },
-                    onConfirm = { name, roll, clsName, secName, father, mother ->
-                        viewModel.addStudent(name, roll, clsName, secName, father, mother)
+                    onConfirm = { name, roll, clsName, secName, father, mother, admission, mobile ->
+                        viewModel.addStudent(name, roll, clsName, secName, father, mother, admission, mobile)
                         viewModel.initializeDefaultSubjectsForSectionIfNeeded(clsName, secName)
                         showAddStudentDialog = false
                     }
@@ -457,12 +457,14 @@ fun StudentRowCard(
 fun AddStudentDialog(
     selectedClassSection: Pair<String, String>?,
     onDismiss: () -> Unit,
-    onConfirm: (name: String, roll: String, className: String, sectionName: String, fatherName: String, motherName: String) -> Unit
+    onConfirm: (name: String, roll: String, className: String, sectionName: String, fatherName: String, motherName: String, admissionNumber: String, mobileNumber: String) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var roll by remember { mutableStateOf("") }
     var fatherName by remember { mutableStateOf("") }
     var motherName by remember { mutableStateOf("") }
+    var admissionNumber by remember { mutableStateOf("") }
+    var mobileNumber by remember { mutableStateOf("") }
     var className by remember { mutableStateOf(selectedClassSection?.first ?: "Grade 10") }
     var sectionName by remember { mutableStateOf(selectedClassSection?.second ?: "A") }
 
@@ -491,6 +493,14 @@ fun AddStudentDialog(
                 )
 
                 OutlinedTextField(
+                    value = admissionNumber,
+                    onValueChange = { admissionNumber = it },
+                    label = { Text("Admission Number") },
+                    modifier = Modifier.fillMaxWidth().testTag("add_student_admission_field"),
+                    singleLine = true
+                )
+
+                OutlinedTextField(
                     value = fatherName,
                     onValueChange = { fatherName = it },
                     label = { Text(stringResource(R.string.father_name_label)) },
@@ -504,6 +514,15 @@ fun AddStudentDialog(
                     label = { Text(stringResource(R.string.mother_name_label)) },
                     modifier = Modifier.fillMaxWidth().testTag("add_student_mother_field"),
                     singleLine = true
+                )
+
+                OutlinedTextField(
+                    value = mobileNumber,
+                    onValueChange = { mobileNumber = it },
+                    label = { Text("Mobile Number") },
+                    modifier = Modifier.fillMaxWidth().testTag("add_student_mobile_field"),
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone)
                 )
 
                 // Only edit class if no class context exists
@@ -532,7 +551,7 @@ fun AddStudentDialog(
             Button(
                 onClick = {
                     if (name.isNotEmpty() && roll.isNotEmpty() && className.isNotEmpty() && sectionName.isNotEmpty()) {
-                        onConfirm(name, roll, className, sectionName, fatherName, motherName)
+                        onConfirm(name, roll, className, sectionName, fatherName, motherName, admissionNumber, mobileNumber)
                     }
                 },
                 modifier = Modifier.testTag("confirm_add_student_button")
@@ -558,6 +577,8 @@ fun EditStudentDialog(
     var roll by remember { mutableStateOf(student.rollNumber) }
     var fatherName by remember { mutableStateOf(student.fatherName) }
     var motherName by remember { mutableStateOf(student.motherName) }
+    var admissionNumber by remember { mutableStateOf(student.admissionNumber ?: "") }
+    var mobileNumber by remember { mutableStateOf(student.mobileNumber ?: "") }
     var className by remember { mutableStateOf(student.className) }
     var sectionName by remember { mutableStateOf(student.sectionName) }
 
@@ -586,6 +607,14 @@ fun EditStudentDialog(
                 )
 
                 OutlinedTextField(
+                    value = admissionNumber,
+                    onValueChange = { admissionNumber = it },
+                    label = { Text("Admission Number") },
+                    modifier = Modifier.fillMaxWidth().testTag("edit_student_admission_field"),
+                    singleLine = true
+                )
+
+                OutlinedTextField(
                     value = fatherName,
                     onValueChange = { fatherName = it },
                     label = { Text(stringResource(R.string.father_name_label)) },
@@ -599,6 +628,15 @@ fun EditStudentDialog(
                     label = { Text(stringResource(R.string.mother_name_label)) },
                     modifier = Modifier.fillMaxWidth().testTag("edit_student_mother_field"),
                     singleLine = true
+                )
+
+                OutlinedTextField(
+                    value = mobileNumber,
+                    onValueChange = { mobileNumber = it },
+                    label = { Text("Mobile Number") },
+                    modifier = Modifier.fillMaxWidth().testTag("edit_student_mobile_field"),
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone)
                 )
 
                 OutlinedTextField(
@@ -627,6 +665,8 @@ fun EditStudentDialog(
                             rollNumber = roll.trim(),
                             fatherName = fatherName.trim(),
                             motherName = motherName.trim(),
+                            admissionNumber = admissionNumber.trim(),
+                            mobileNumber = mobileNumber.trim(),
                             className = className.trim(),
                             sectionName = sectionName.trim()
                         ))

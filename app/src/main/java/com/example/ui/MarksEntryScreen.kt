@@ -38,7 +38,8 @@ import com.example.viewmodel.AppViewModel
 @Composable
 fun MarksEntryScreen(
     viewModel: AppViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNavigateToStudentSearch: () -> Unit
 ) {
     val context = LocalContext.current
     val allStudents by viewModel.allStudents.collectAsState()
@@ -47,11 +48,10 @@ fun MarksEntryScreen(
     val allSectionSubjects by viewModel.allSectionSubjects.collectAsState()
     val activeRole by viewModel.activeRole.collectAsState()
 
-    // 1. Selector State Values
-    var selectedClassSection by remember { mutableStateOf<String?>(null) }
-    var selectedSubject by remember { mutableStateOf<String?>(null) }
-    var activeExamType by remember { mutableStateOf("UT1") }
-    var searchQuery by remember { mutableStateOf("") }
+    // 1. Selector State Values from ViewModel
+    val selectedClassSection by viewModel.selectedClassSection.collectAsState()
+    val selectedSubject by viewModel.selectedSubject.collectAsState()
+    val activeExamType by viewModel.activeExamType.collectAsState()
 
     // Dropdown expanding states
     var classExpanded by remember { mutableStateOf(false) }
@@ -61,7 +61,7 @@ fun MarksEntryScreen(
     // Toggle whether sheet/grading list is unlocked
     var isGradingUnlocked by remember { mutableStateOf(false) }
 
-    val examTypes = listOf("UT1", "UT2", "Half Yearly", "Term 1 Internal", "UT3", "UT4", "Annual Exam", "Term 2 Internal")
+    val examTypes = listOf("PT 1", "PT 2", "FA 1", "Term 1 Internal", "PT 3", "PT 4", "FA 2", "Term 2 Internal")
 
     // Aggregate unique classes
     val classesList = remember(allStudents) {
@@ -70,7 +70,6 @@ fun MarksEntryScreen(
 
     // Reset subsequent selections when previous fields change
     LaunchedEffect(selectedClassSection) {
-        selectedSubject = null
         isGradingUnlocked = false
     }
 
@@ -109,25 +108,7 @@ fun MarksEntryScreen(
         val parts = selectedClassSection!!.split(" - ")
         val className = parts.firstOrNull() ?: ""
         val sectionName = parts.getOrNull(1) ?: ""
-        val config = allExamConfigs.find { it.className == className }
-
-        return when (assessmentType) {
-            "UT1" -> config?.t1PaMaxMarks1 ?: 20.0
-            "UT2" -> config?.t1PaMaxMarks2 ?: 20.0
-            "Half Yearly" -> {
-                val secSub = allSectionSubjects.find { it.className == className && it.sectionName == sectionName && it.subjectName == selectedSubject }
-                secSub?.maxMarks ?: 80.0
-            }
-            "Term 1 Internal" -> 20.0
-            "UT3" -> config?.t2PaMaxMarks1 ?: 20.0
-            "UT4" -> config?.t2PaMaxMarks2 ?: 20.0
-            "Annual Exam" -> {
-                val secSub = allSectionSubjects.find { it.className == className && it.sectionName == sectionName && it.subjectName == selectedSubject }
-                secSub?.maxMarks ?: 80.0
-            }
-            "Term 2 Internal" -> 20.0
-            else -> 100.0
-        }
+        return viewModel.getMaxMarksForAssessment(className, sectionName, selectedSubject, assessmentType)
     }
 
     Scaffold(
@@ -145,6 +126,11 @@ fun MarksEntryScreen(
                     }
                 },
                 actions = {
+                    // Search icon button
+                    IconButton(onClick = onNavigateToStudentSearch) {
+                        Icon(imageVector = Icons.Default.Search, contentDescription = "Search Student")
+                    }
+
                     // Active role badge
                     Surface(
                         shape = RoundedCornerShape(8.dp),
@@ -197,75 +183,6 @@ fun MarksEntryScreen(
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         Text(
-                            text = "Search or Select Student",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-
-                        // 0. Global Search Bar
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("Find by Name, Class, or Roll No") },
-                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                            trailingIcon = {
-                                if (searchQuery.isNotEmpty()) {
-                                    IconButton(onClick = { searchQuery = "" }) {
-                                        Icon(Icons.Default.Close, contentDescription = null)
-                                    }
-                                }
-                            },
-                            shape = RoundedCornerShape(12.dp),
-                            singleLine = true
-                        )
-
-                        // Global Search Results
-                        if (searchQuery.isNotEmpty()) {
-                            val globalResults = allStudents.filter {
-                                it.name.contains(searchQuery, ignoreCase = true) ||
-                                it.rollNumber.contains(searchQuery, ignoreCase = true) ||
-                                it.className.contains(searchQuery, ignoreCase = true) ||
-                                it.sectionName.contains(searchQuery, ignoreCase = true)
-                            }.take(5)
-
-                            if (globalResults.isNotEmpty()) {
-                                Card(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                                ) {
-                                    Column(modifier = Modifier.padding(8.dp)) {
-                                        Text("Search Results:", fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 4.dp))
-                                        globalResults.forEach { student ->
-                                            val classKey = "${student.className} - ${student.sectionName}"
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .clickable {
-                                                        selectedClassSection = classKey
-                                                        searchQuery = ""
-                                                    }
-                                                    .padding(vertical = 8.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(16.dp))
-                                                Spacer(Modifier.width(8.dp))
-                                                Column {
-                                                    Text(student.name, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                                    Text("${student.className}-${student.sectionName} | Roll: ${student.rollNumber}", fontSize = 11.sp)
-                                                }
-                                            }
-                                            if (student != globalResults.last()) HorizontalDivider()
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-
-                        Text(
                             text = stringResource(R.string.marks_step_1),
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
@@ -295,7 +212,7 @@ fun MarksEntryScreen(
                                         DropdownMenuItem(
                                             text = { Text(cls) },
                                             onClick = {
-                                                selectedClassSection = cls
+                                                viewModel.updateSelectedClassSection(cls)
                                                 classExpanded = false
                                             },
                                             modifier = Modifier.testTag("menu_class_$cls")
@@ -329,7 +246,7 @@ fun MarksEntryScreen(
                                         DropdownMenuItem(
                                             text = { Text(sub) },
                                             onClick = {
-                                                selectedSubject = sub
+                                                viewModel.updateSelectedSubject(sub)
                                                 subjectExpanded = false
                                             },
                                             modifier = Modifier.testTag("menu_subject_$sub")
@@ -362,7 +279,7 @@ fun MarksEntryScreen(
                                         DropdownMenuItem(
                                             text = { Text(type) },
                                             onClick = {
-                                                activeExamType = type
+                                                viewModel.updateActiveExamType(type)
                                                 examTypeExpanded = false
                                             }
                                         )
@@ -401,10 +318,7 @@ fun MarksEntryScreen(
                 val sectionName = selectedParts[1]
                 
                 val filteredStudents = allStudents.filter {
-                    it.className == className && it.sectionName == sectionName &&
-                    (searchQuery.isEmpty() || 
-                     it.name.contains(searchQuery, ignoreCase = true) || 
-                     it.rollNumber.contains(searchQuery, ignoreCase = true))
+                    it.className == className && it.sectionName == sectionName
                 }
 
                 Column(modifier = Modifier.fillMaxSize()) {
@@ -435,7 +349,7 @@ fun MarksEntryScreen(
                                         DropdownMenuItem(
                                             text = { Text(type) },
                                             onClick = {
-                                                activeExamType = type
+                                                viewModel.updateActiveExamType(type)
                                                 examTypeExpanded = false
                                             }
                                         )
@@ -448,60 +362,6 @@ fun MarksEntryScreen(
                             }
                         }
                     }
-
-                    // Bulk Input Field
-                    var bulkValue by remember { mutableStateOf("") }
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = bulkValue,
-                            onValueChange = { bulkValue = it },
-                            label = { Text("Set all $activeExamType") },
-                            modifier = Modifier.weight(1f),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        Button(
-                            onClick = {
-                                if (bulkValue.isNotEmpty()) {
-                                    viewModel.batchUpdateMarks(
-                                        className = className,
-                                        sectionName = sectionName,
-                                        subjectName = selectedSubject!!,
-                                        examType = activeExamType,
-                                        newValue = bulkValue,
-                                        maxMarks = getMaxMarksForAssessment(activeExamType)
-                                    )
-                                    Toast.makeText(context, "Applied to all", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text("Apply")
-                        }
-                    }
-
-                    // Local Search/Filter in Grading View
-                    OutlinedTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                        placeholder = { Text("Filter by Name or Roll No") },
-                        leadingIcon = { Icon(Icons.Default.FilterList, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                        trailingIcon = {
-                            if (searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { searchQuery = "" }) {
-                                    Icon(Icons.Default.Clear, contentDescription = null, modifier = Modifier.size(18.dp))
-                                }
-                            }
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        singleLine = true,
-                        textStyle = MaterialTheme.typography.bodySmall
-                    )
 
                     LazyColumn(
                         modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -668,7 +528,7 @@ fun SingleMarkInputCell(
             modifier = Modifier.fillMaxWidth().wrapContentHeight().padding(vertical = 4.dp),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             textStyle = LocalTextStyle.current.copy(
-                color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface, 
+                color = if (isError) MaterialTheme.colorScheme.error else Color.White, 
                 fontWeight = FontWeight.ExtraBold,
                 textAlign = TextAlign.Center,
                 fontSize = 18.sp
@@ -688,7 +548,7 @@ fun SingleMarkInputCell(
                         val maxStr = if (maxMarks % 1.0 == 0.0) maxMarks.toInt().toString() else maxMarks.toString()
                         Text(
                             text = "/ $maxStr",
-                            color = Color.Gray,
+                            color = Color.LightGray,
                             fontSize = 12.sp,
                             modifier = Modifier.padding(end = 8.dp)
                         )
@@ -699,8 +559,11 @@ fun SingleMarkInputCell(
                             isError = isError,
                             interactionSource = interactionSource,
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedContainerColor = Color.White,
-                                unfocusedContainerColor = Color.White.copy(alpha = 0.8f)
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                disabledContainerColor = Color.Transparent,
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
                             ),
                             shape = RoundedCornerShape(8.dp)
                         )

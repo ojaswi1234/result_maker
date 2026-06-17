@@ -129,7 +129,7 @@
     <string name="evaluation_checklist">Evaluation Checklist:</string>
     <string name="passed">PASSED</string>
     <string name="error_no_students_section">No students enrolled in this section.</string>
-    <string name="download_ut_results">Download UT Results</string>
+    <string name="download_ut_results">Download PT Results</string>
     <string name="download_term_results">Download Term Results</string>
     <string name="report_cards_pdf">Report Cards PDF</string>
     <string name="print_all_cards">Print All Cards</string>

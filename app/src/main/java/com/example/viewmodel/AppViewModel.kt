@@ -15,9 +15,59 @@ sealed interface AuthState {
     data class VerificationPending(val email: String) : AuthState
 }
 
+data class MonthlyAttendanceSummary(
+    val studentId: Int,
+    val attendedClasses: Int,
+    val totalClasses: Int
+)
+
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val database = AppDatabase.getDatabase(application)
     val repository = SchoolRepository(database)
+
+    // Bulk Attendance Entry State
+    private val _monthlyAttendanceSummaries = MutableStateFlow<Map<Int, MonthlyAttendanceSummary>>(emptyMap())
+    val monthlyAttendanceSummaries: StateFlow<Map<Int, MonthlyAttendanceSummary>> = _monthlyAttendanceSummaries.asStateFlow()
+
+    fun updateMonthlyAttendanceBulk(summaries: List<MonthlyAttendanceSummary>) {
+        val current = _monthlyAttendanceSummaries.value.toMutableMap()
+        summaries.forEach { summary ->
+            current[summary.studentId] = summary
+        }
+        _monthlyAttendanceSummaries.value = current
+    }
+
+    /**
+     * Fetches aggregate attendance from the database for a specific class section.
+     * Calculated as (Attended Count, Total Record Count).
+     */
+    suspend fun fetchAggregateAttendanceForClass(className: String, sectionName: String): Map<Int, Pair<String, String>> {
+        kotlinx.coroutines.delay(800) // Artificial delay for fancy UX loader
+        val studentsInSection = allStudents.value.filter { it.className == className && it.sectionName == sectionName }
+        val studentIds = studentsInSection.map { it.id }.toSet()
+        val records = allAttendance.value.filter { it.studentId in studentIds }
+        
+        return studentsInSection.associate { student ->
+            val studentRecords = records.filter { it.studentId == student.id }
+            val attended = studentRecords.count { it.status.equals("Present", ignoreCase = true) }
+            student.id to Pair(attended.toString(), studentRecords.size.toString())
+        }
+    }
+
+    /**
+     * Fetches aggregate attendance from the database for a specific class section.
+     */
+    fun getAggregateAttendanceFromDB(className: String, sectionName: String): Map<Int, Pair<Int, Int>> {
+        val studentsInSection = allStudents.value.filter { it.className == className && it.sectionName == sectionName }
+        val studentIds = studentsInSection.map { it.id }.toSet()
+        val records = allAttendance.value.filter { it.studentId in studentIds }
+        
+        return studentsInSection.associate { student ->
+            val studentRecords = records.filter { it.studentId == student.id }
+            val attended = studentRecords.count { it.status.equals("Present", ignoreCase = true) }
+            student.id to Pair(attended, studentRecords.size)
+        }
+    }
 
     // Current logged-in user state
     private val _authState = MutableStateFlow<AuthState>(AuthState.Unauthenticated)
@@ -64,9 +114,19 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             initialValue = emptyList()
         )
 
+    // Term Weightage Settings
+    private val _term1Weight = MutableStateFlow(40)
+    val term1Weight: StateFlow<Int> = _term1Weight.asStateFlow()
+
+    private val _term2Weight = MutableStateFlow(60)
+    val term2Weight: StateFlow<Int> = _term2Weight.asStateFlow()
+
     init {
         val sharedPrefs = application.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
         val isDemoCleaned = sharedPrefs.getBoolean("is_demo_cleaned_v7", false)
+
+        _term1Weight.value = sharedPrefs.getInt("term1_weight", 40)
+        _term2Weight.value = sharedPrefs.getInt("term2_weight", 60)
 
         // Session Persistence Check
         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
@@ -222,7 +282,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Add Student
-    fun addStudent(name: String, rollNumber: String, className: String, sectionName: String, fatherName: String = "", motherName: String = "") {
+    fun addStudent(
+        name: String, 
+        rollNumber: String, 
+        className: String, 
+        sectionName: String, 
+        fatherName: String = "", 
+        motherName: String = "",
+        admissionNumber: String = "",
+        mobileNumber: String = ""
+    ) {
         executeDbAction("ADD_STUDENT") {
             val cleanClass = className.trim()
             val cleanSection = sectionName.trim()
@@ -230,6 +299,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             val cleanRoll = rollNumber.trim()
             val cleanFather = fatherName.trim()
             val cleanMother = motherName.trim()
+            val cleanAdmission = admissionNumber.trim()
+            val cleanMobile = mobileNumber.trim()
             if (cleanClass.isNotEmpty() && cleanSection.isNotEmpty() && cleanName.isNotEmpty() && cleanRoll.isNotEmpty()) {
                 repository.insertStudent(
                     Student(
@@ -238,7 +309,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         className = cleanClass,
                         sectionName = cleanSection,
                         fatherName = cleanFather,
-                        motherName = cleanMother
+                        motherName = cleanMother,
+                        admissionNumber = cleanAdmission,
+                        mobileNumber = cleanMobile
                     )
                 )
             }
@@ -249,8 +322,65 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _activeRole = MutableStateFlow("Admin")
     val activeRole: StateFlow<String> = _activeRole.asStateFlow()
 
+    fun updateTermWeights(t1: Int, t2: Int) {
+        _term1Weight.value = t1
+        _term2Weight.value = t2
+        getApplication<Application>().getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putInt("term1_weight", t1)
+            .putInt("term2_weight", t2)
+            .apply()
+    }
+
     fun updateActiveRole(role: String) {
         _activeRole.value = role
+    }
+
+    // Shared Selection State for Grading
+    private val _selectedClassSection = MutableStateFlow<String?>(null)
+    val selectedClassSection: StateFlow<String?> = _selectedClassSection.asStateFlow()
+
+    private val _selectedSubject = MutableStateFlow<String?>(null)
+    val selectedSubject: StateFlow<String?> = _selectedSubject.asStateFlow()
+
+    private val _activeExamType = MutableStateFlow("PT 1")
+    val activeExamType: StateFlow<String> = _activeExamType.asStateFlow()
+
+    fun updateSelectedClassSection(value: String?) {
+        _selectedClassSection.value = value
+        // Reset subject when class changes
+        _selectedSubject.value = null
+    }
+
+    fun updateSelectedSubject(value: String?) {
+        _selectedSubject.value = value
+    }
+
+    fun updateActiveExamType(value: String) {
+        _activeExamType.value = value
+    }
+
+    // Helper to get max marks for a specific assessment type
+    fun getMaxMarksForAssessment(className: String, sectionName: String, subjectName: String?, assessmentType: String): Double {
+        val config = allExamConfigs.value.find { it.className == className }
+
+        return when (assessmentType) {
+            "PT 1" -> config?.t1PaMaxMarks1 ?: 20.0
+            "PT 2" -> config?.t1PaMaxMarks2 ?: 20.0
+            "FA 1" -> {
+                val secSub = allSectionSubjects.value.find { it.className == className && it.sectionName == sectionName && it.subjectName == subjectName }
+                secSub?.maxMarks ?: 80.0
+            }
+            "Term 1 Internal" -> 20.0
+            "PT 3" -> config?.t2PaMaxMarks1 ?: 20.0
+            "PT 4" -> config?.t2PaMaxMarks2 ?: 20.0
+            "FA 2" -> {
+                val secSub = allSectionSubjects.value.find { it.className == className && it.sectionName == sectionName && it.subjectName == subjectName }
+                secSub?.maxMarks ?: 80.0
+            }
+            "Term 2 Internal" -> 20.0
+            else -> 100.0
+        }
     }
 
     // All exam configurations
@@ -303,10 +433,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     // Overloaded Save student mark supporting term and specific assessment mode
     fun saveMark(studentId: Int, subject: String, termName: String, examType: String, marks: Double, maxMarks: Double = 100.0) {
-        // Enforce logical grouping: Term 1 (UT 1, 2, Term 1) & Term 2 (UT 3, 4, Term 2)
+        // Enforce logical grouping: Term 1 (PT 1, 2, Term 1) & Term 2 (PT 3, 4, Term 2)
         val finalTermName = when (examType) {
-            "UT1", "UT2", "Half Yearly", "Term 1 Internal" -> "Term 1"
-            "UT3", "UT4", "Annual Exam", "Term 2 Internal" -> "Term 2"
+            "PT 1", "PT 2", "Half Yearly", "Term 1 Internal" -> "Term 1"
+            "PT 3", "PT 4", "Annual Exam", "Term 2 Internal" -> "Term 2"
             else -> termName
         }
 
@@ -332,8 +462,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         executeDbAction("BATCH_UPDATE_MARKS") {
             val students = repository.getStudentsForSection(className, sectionName)
             val termName = when (examType) {
-                "UT1", "UT2", "Half Yearly", "Term 1 Internal" -> "Term 1"
-                "UT3", "UT4", "Annual Exam", "Term 2 Internal" -> "Term 2"
+                "PT 1", "PT 2", "Half Yearly", "Term 1 Internal" -> "Term 1"
+                "PT 3", "PT 4", "Annual Exam", "Term 2 Internal" -> "Term 2"
                 else -> "Term 1"
             }
             students.forEach { student ->
@@ -353,12 +483,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * Calculates weighted Annual Result for a student across all subjects.
-     * Annual = (40% of Term 1 Total) + (60% of Term 2 Total)
+     * Annual = (Term 1 Total * (term1Weight / 100.0)) + (Term 2 Total * (term2Weight / 100.0))
      */
     suspend fun calculateAnnualResult(studentId: Int): Map<String, Double> {
         val marks = repository.getMarksForStudent(studentId)
         val subjects = marks.map { it.subjectName }.distinct()
         val results = mutableMapOf<String, Double>()
+
+        val t1Factor = _term1Weight.value / 100.0
+        val t2Factor = _term2Weight.value / 100.0
 
         for (subject in subjects) {
             val subjectMarks = marks.filter { it.subjectName == subject }
@@ -369,7 +502,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             val t1Total = t1Marks.sumOf { it.marksObtained }
             val t2Total = t2Marks.sumOf { it.marksObtained }
 
-            val annualScore = (t1Total * 0.40) + (t2Total * 0.60)
+            val annualScore = (t1Total * t1Factor) + (t2Total * t2Factor)
             results[subject] = annualScore
         }
         return results
@@ -448,8 +581,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun updateMarksForExam(studentId: Int, subjectName: String, examType: String, newValue: String, maxMarks: Double = 100.0) {
         val marksValue = newValue.toDoubleOrNull() ?: return
         val termName = when (examType) {
-            "UT1", "UT2", "Half Yearly", "Term 1 Internal" -> "Term 1"
-            "UT3", "UT4", "Annual Exam", "Term 2 Internal" -> "Term 2"
+            "PT 1", "PT 2", "Half Yearly", "Term 1 Internal" -> "Term 1"
+            "PT 3", "PT 4", "Annual Exam", "Term 2 Internal" -> "Term 2"
             else -> "Term 1"
         }
 

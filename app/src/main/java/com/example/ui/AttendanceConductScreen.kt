@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
 import com.example.R
 import com.example.data.Student
+import com.example.data.ExcelBackupHelper
 import com.example.viewmodel.AppViewModel
 import java.time.LocalDate
 
@@ -30,20 +31,26 @@ import java.time.LocalDate
 @Composable
 fun AttendanceConductScreen(
     viewModel: AppViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNavigateToIndiscipline: () -> Unit
 ) {
     val context = LocalContext.current
     val students by viewModel.allStudents.collectAsState()
+    val allAttendance by viewModel.allAttendance.collectAsState()
     
     var selectedClass by remember { mutableStateOf("") }
     var selectedSection by remember { mutableStateOf("") }
     var selectedDate by remember { mutableStateOf(LocalDate.now().toString()) }
     var selectedTerm by remember { mutableStateOf("Term 1") }
 
-    // State maps for attendance and discipline
+    // Date Picker State
+    var showDatePicker by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = LocalDate.now().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+    )
+
+    // State maps for attendance
     val attendanceStates = remember { mutableStateMapOf<Int, String>() }
-    val disciplineGrades = remember { mutableStateMapOf<Int, String>() }
-    val remarksStates = remember { mutableStateMapOf<Int, String>() }
 
     val filteredStudents = remember(students, selectedClass, selectedSection) {
         students.filter { it.className == selectedClass && it.sectionName == selectedSection }
@@ -53,18 +60,70 @@ fun AttendanceConductScreen(
     LaunchedEffect(filteredStudents) {
         filteredStudents.forEach { student ->
             if (!attendanceStates.containsKey(student.id)) attendanceStates[student.id] = "Present"
-            if (!disciplineGrades.containsKey(student.id)) disciplineGrades[student.id] = "A"
-            if (!remarksStates.containsKey(student.id)) remarksStates[student.id] = ""
+        }
+    }
+
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val date = java.time.Instant.ofEpochMilli(millis)
+                            .atZone(java.time.ZoneId.systemDefault())
+                            .toLocalDate()
+                        selectedDate = date.toString()
+                    }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Attendance & Conduct", fontWeight = FontWeight.Bold) },
+                title = { Text("Daily Attendance", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = {
+                        if (selectedClass.isEmpty() || selectedSection.isEmpty()) {
+                            Toast.makeText(context, "Select Class & Section to export", Toast.LENGTH_SHORT).show()
+                            return@IconButton
+                        }
+                        val attendanceForSection = allAttendance.filter { record ->
+                            filteredStudents.any { it.id == record.studentId }
+                        }
+                        val file = ExcelBackupHelper.exportAttendanceToExcel(
+                            context,
+                            selectedClass,
+                            selectedSection,
+                            attendanceForSection,
+                            filteredStudents
+                        )
+                        if (file != null) {
+                            ExcelBackupHelper.shareFile(context, file)
+                        } else {
+                            Toast.makeText(context, "Failed to export attendance", Toast.LENGTH_SHORT).show()
+                        }
+                    }) {
+                        Icon(Icons.Default.Upload, contentDescription = "Export Attendance")
+                    }
+                    TextButton(onClick = onNavigateToIndiscipline) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Gavel, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Indiscipline Log", style = MaterialTheme.typography.labelLarge)
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -83,21 +142,14 @@ fun AttendanceConductScreen(
                     
                     filteredStudents.forEach { student ->
                         val status = attendanceStates[student.id] ?: "Present"
-                        val grade = disciplineGrades[student.id] ?: "A"
-                        val remarks = remarksStates[student.id] ?: ""
-                        
                         viewModel.saveAttendance(student.id, selectedDate, status, selectedTerm)
-                        viewModel.saveDiscipline(student.id, selectedDate, remarks, grade, selectedTerm)
                     }
                     
-                    Toast.makeText(context, "All records saved successfully!", Toast.LENGTH_LONG).show()
-                    // Clear UI state
-                    attendanceStates.clear()
-                    disciplineGrades.clear()
-                    remarksStates.clear()
+                    Toast.makeText(context, "Attendance saved successfully!", Toast.LENGTH_LONG).show()
+                    // Optional: Clear attendance state or keep for visual confirmation
                 },
-                icon = { Icon(Icons.Default.Save, contentDescription = null) },
-                text = { Text("Save All Records") },
+                icon = { Icon(Icons.Default.Check, contentDescription = null) },
+                text = { Text("Save Attendance") },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             )
@@ -108,7 +160,7 @@ fun AttendanceConductScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // Header Filters (Sticky-like at top of Column)
+            // Header Filters
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -124,7 +176,7 @@ fun AttendanceConductScreen(
                         ExposedDropdownMenuBox(
                             expanded = expanded,
                             onExpandedChange = { expanded = !expanded },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1.2f)
                         ) {
                             OutlinedTextField(
                                 value = if (selectedClass.isNotEmpty()) "$selectedClass - $selectedSection" else "Select Class",
@@ -158,7 +210,7 @@ fun AttendanceConductScreen(
                         ExposedDropdownMenuBox(
                             expanded = termExpanded,
                             onExpandedChange = { termExpanded = !termExpanded },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(0.8f)
                         ) {
                             OutlinedTextField(
                                 value = selectedTerm,
@@ -186,20 +238,32 @@ fun AttendanceConductScreen(
                         }
                     }
 
+                    // Interactive Date Picker
                     OutlinedTextField(
                         value = selectedDate,
-                        onValueChange = { selectedDate = it },
-                        label = { Text("Date") },
-                        modifier = Modifier.fillMaxWidth(),
-                        leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
-                        readOnly = true
+                        onValueChange = { },
+                        label = { Text("Attendance Date") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showDatePicker = true },
+                        leadingIcon = { Icon(Icons.Default.Event, contentDescription = null) },
+                        trailingIcon = { Icon(Icons.Default.EditCalendar, contentDescription = null) },
+                        readOnly = true,
+                        enabled = false, // Disable typing, force click
+                        colors = OutlinedTextFieldDefaults.colors(
+                            disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                            disabledBorderColor = MaterialTheme.colorScheme.outline,
+                            disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            disabledTrailingIconColor = MaterialTheme.colorScheme.primary,
+                            disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     )
                 }
             }
 
             if (selectedClass.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Select a Class & Section to begin", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Select a Class to start marking attendance", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else {
                 LazyColumn(
@@ -210,11 +274,7 @@ fun AttendanceConductScreen(
                         StudentAttendanceRow(
                             student = student,
                             status = attendanceStates[student.id] ?: "Present",
-                            onStatusChange = { attendanceStates[student.id] = it },
-                            grade = disciplineGrades[student.id] ?: "A",
-                            onGradeChange = { disciplineGrades[student.id] = it },
-                            remarks = remarksStates[student.id] ?: "",
-                            onRemarksChange = { remarksStates[student.id] = it }
+                            onStatusChange = { attendanceStates[student.id] = it }
                         )
                     }
                 }
@@ -227,110 +287,58 @@ fun AttendanceConductScreen(
 fun StudentAttendanceRow(
     student: Student,
     status: String,
-    onStatusChange: (String) -> Unit,
-    grade: String,
-    onGradeChange: (String) -> Unit,
-    remarks: String,
-    onRemarksChange: (String) -> Unit
+    onStatusChange: (String) -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+            .padding(horizontal = 8.dp, vertical = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(text = student.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-                    Text(text = "Roll No: ${student.rollNumber}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                
-                // Attendance Selector (Row of buttons)
-                Row(
-                    modifier = Modifier
-                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
-                        .padding(2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    listOf("Present", "Absent", "Leave").forEach { option ->
-                        val isSelected = status == option
-                        Box(
-                            modifier = Modifier
-                                .clickable { onStatusChange(option) }
-                                .background(
-                                    if (isSelected) {
-                                        when (option) {
-                                            "Present" -> Color(0xFF4CAF50)
-                                            "Absent" -> Color(0xFFF44336)
-                                            else -> Color(0xFFFFC107)
-                                        }
-                                    } else Color.Transparent,
-                                    RoundedCornerShape(6.dp)
-                                )
-                                .padding(horizontal = 10.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                text = option.take(1),
-                                color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-                }
+        Row(
+            modifier = Modifier
+                .padding(12.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = student.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
+                Text(text = "Roll: ${student.rollNumber}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
+            
+            // Attendance Selector
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                    .padding(2.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                // Discipline Grade Selector
-                Row(
-                    modifier = Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text("Grade:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
-                    listOf("A", "B", "C").forEach { g ->
-                        val isSelected = grade == g
-                        Box(
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clickable { onGradeChange(g) }
-                                .background(
-                                    if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                                    RoundedCornerShape(4.dp)
-                                )
-                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(4.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = g,
-                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                                fontWeight = FontWeight.Bold
+                listOf("Present", "Absent", "Leave").forEach { option ->
+                    val isSelected = status == option
+                    Box(
+                        modifier = Modifier
+                            .clickable { onStatusChange(option) }
+                            .background(
+                                if (isSelected) {
+                                    when (option) {
+                                        "Present" -> Color(0xFF4CAF50)
+                                        "Absent" -> Color(0xFFF44336)
+                                        else -> Color(0xFFFFC107)
+                                    }
+                                } else Color.Transparent,
+                                RoundedCornerShape(6.dp)
                             )
-                        }
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = option.take(1),
+                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
                     }
                 }
-
-                // Remarks Field
-                OutlinedTextField(
-                    value = remarks,
-                    onValueChange = onRemarksChange,
-                    placeholder = { Text("Remarks (Optional)", fontSize = 12.sp) },
-                    modifier = Modifier.weight(1.5f),
-                    singleLine = true,
-                    textStyle = MaterialTheme.typography.bodySmall,
-                    shape = RoundedCornerShape(8.dp)
-                )
             }
         }
     }
