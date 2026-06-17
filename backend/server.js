@@ -13,7 +13,7 @@ const io = new Server(server, {
     }
 });
 
-const MONGO_URI = "mongodb+srv://mockAdmin:mockPassword123@cluster0.mock.mongodb.net/school_management?retryWrites=true&w=majority";
+const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/resultmaker';
 
 mongoose.connect(MONGO_URI)
     .then(() => console.log('Connected to MongoDB successfully'))
