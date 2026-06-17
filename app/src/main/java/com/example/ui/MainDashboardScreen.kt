@@ -65,7 +65,9 @@ fun MainDashboardScreen(
     val schoolSetting by viewModel.schoolSetting.collectAsState()
     val authState by viewModel.authState.collectAsState()
     val activeRole by viewModel.activeRole.collectAsState()
+    val pendingRequests by viewModel.pendingRequests.collectAsState()
     var showEditDialog by remember { mutableStateOf(false) }
+    var showRequestsDialog by remember { mutableStateOf(false) }
 
     val guestAccountText = stringResource(R.string.guest_account)
     val userEmail = when (val auth = authState) {
@@ -124,47 +126,45 @@ fun MainDashboardScreen(
                     
                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                     
-                    // ROLE SIMULATOR ROW SELECTORS
+                    // HIERARCHY TREE OVERHAUL
                     Text(
-                        text = stringResource(R.string.simulate_role_context),
+                        text = "School Hierarchy",
                         fontWeight = FontWeight.Bold,
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.outline
                     )
                     
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        listOf("Admin", "Teacher", "Principal/Coordinator").forEach { r ->
-                            val isSelected = activeRole == r
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(
-                                        if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else Color.Transparent
-                                    )
-                                    .clickable {
-                                        viewModel.updateActiveRole(r)
+                    val currentUserRole by viewModel.currentUserRole.collectAsState()
+                    val coordinatorId by viewModel.coordinatorId.collectAsState()
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // Admin / Coordinator Row
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                                Text(if (currentUserRole == "Admin") "You (Coordinator)" else "Admin", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                if (coordinatorId != null) {
+                                    Surface(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(4.dp)) {
+                                        Text(coordinatorId!!, color = Color.White, fontSize = 9.sp, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
                                     }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                RadioButton(
-                                    selected = isSelected,
-                                    onClick = { viewModel.updateActiveRole(r) },
-                                    colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
-                                )
-                                Text(
-                                    text = if (r == "Principal/Coordinator") stringResource(R.string.school_coordinator) else {
-                                        when(r) {
-                                            "Admin" -> stringResource(R.string.role_admin)
-                                            "Teacher" -> stringResource(R.string.role_teacher)
-                                            else -> stringResource(R.string.role_principal_coordinator)
-                                        }
-                                    },
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    fontSize = 12.sp
-                                )
+                                }
+                            }
+                            
+                            // Indented Teachers
+                            Column(modifier = Modifier.padding(start = 24.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                if (currentUserRole == "Teacher") {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.secondary)
+                                        Text("You (Teacher)", fontSize = 12.sp)
+                                    }
+                                } else if (currentUserRole == "Admin") {
+                                    Text("Approved Teachers", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                                    // Placeholder for actual teacher list
+                                    Text("No teachers joined yet", fontSize = 11.sp, color = MaterialTheme.colorScheme.outlineVariant)
+                                }
                             }
                         }
                     }
@@ -313,15 +313,17 @@ fun MainDashboardScreen(
                             )
                         }
 
-                        IconButton(
-                            onClick = { viewModel.logout(onLogout) },
-                            modifier = Modifier.testTag("signout_button")
+                        BadgedBox(
+                            badge = {
+                                if (pendingRequests.isNotEmpty()) {
+                                    Badge { Text(pendingRequests.size.toString()) }
+                                }
+                            },
+                            modifier = Modifier.padding(end = 8.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Logout,
-                                contentDescription = stringResource(R.string.sign_out),
-                                tint = MaterialTheme.colorScheme.error
-                            )
+                            IconButton(onClick = { showRequestsDialog = true }) {
+                                Icon(imageVector = Icons.Default.Notifications, contentDescription = "Access Requests")
+                            }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -593,6 +595,50 @@ fun MainDashboardScreen(
                 onSave = { name, session, loc, emoji, colorHex, affiliation, logo ->
                     viewModel.updateSchoolDetails(name, session, loc, emoji, colorHex, affiliation, logo)
                     showEditDialog = false
+                }
+            )
+        }
+
+        // ACCESS REQUESTS DIALOG
+        if (showRequestsDialog) {
+            AlertDialog(
+                onDismissRequest = { showRequestsDialog = false },
+                title = { Text("Access Requests", fontWeight = FontWeight.Bold) },
+                text = {
+                    if (pendingRequests.isEmpty()) {
+                        Text("No pending requests.", color = MaterialTheme.colorScheme.outline)
+                    } else {
+                        androidx.compose.foundation.lazy.LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)
+                        ) {
+                            androidx.compose.foundation.lazy.items(pendingRequests) { request ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(request.teacherName, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        Text(request.mobileNumber, fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
+                                    }
+                                    Row {
+                                        IconButton(onClick = { viewModel.approveRequest(request.requestId) }) {
+                                            Icon(Icons.Default.Check, contentDescription = "Approve", tint = Color(0xFF0F9D58))
+                                        }
+                                        IconButton(onClick = { viewModel.denyRequest(request.requestId) }) {
+                                            Icon(Icons.Default.Close, contentDescription = "Deny", tint = MaterialTheme.colorScheme.error)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showRequestsDialog = false }) {
+                        Text("Close")
+                    }
                 }
             )
         }

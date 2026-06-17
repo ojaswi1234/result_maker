@@ -110,8 +110,20 @@ fun MainAppHost(viewModel: AppViewModel) {
                 LoginScreen(
                     viewModel = viewModel,
                     onLoginSuccess = {
-                        navController.navigate("dashboard") {
+                        navController.navigate("role_selection") {
                             popUpTo("login") { inclusive = true }
+                        }
+                    }
+                )
+            }
+
+            // Role selection screen
+            composable("role_selection") {
+                RoleSelectionScreen(
+                    viewModel = viewModel,
+                    onNavigateToDashboard = {
+                        navController.navigate("dashboard") {
+                            popUpTo("role_selection") { inclusive = true }
                         }
                     }
                 )

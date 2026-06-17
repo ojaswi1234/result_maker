@@ -82,6 +82,49 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             initialValue = SchoolSetting()
         )
 
+    // Role-Based Auth & Hierarchy States
+    private val _currentUserRole = MutableStateFlow<String?>(null)
+    val currentUserRole: StateFlow<String?> = _currentUserRole.asStateFlow()
+
+    private val _coordinatorId = MutableStateFlow<String?>(null)
+    val coordinatorId: StateFlow<String?> = _coordinatorId.asStateFlow()
+
+    private val _pendingRequests = MutableStateFlow<List<com.example.data.JoinRequest>>(emptyList())
+    val pendingRequests: StateFlow<List<com.example.data.JoinRequest>> = _pendingRequests.asStateFlow()
+
+    private val _isWaitingForApproval = MutableStateFlow(false)
+    val isWaitingForApproval: StateFlow<Boolean> = _isWaitingForApproval.asStateFlow()
+
+    fun updateRole(role: String?) {
+        _currentUserRole.value = role
+    }
+
+    fun updateCoordinatorId(id: String?) {
+        _coordinatorId.value = id
+    }
+
+    fun setWaitingForApproval(waiting: Boolean) {
+        _isWaitingForApproval.value = waiting
+    }
+
+    // Socket.io Placeholders
+    fun requestAccess(coordId: String, mobile: String) {
+        // TODO: Implement Socket.io emit('request_join')
+        println("Socket.io: Emitting request_join for coordId: $coordId, mobile: $mobile")
+    }
+
+    fun approveRequest(requestId: String) {
+        // TODO: Implement Socket.io emit('approve_request')
+        println("Socket.io: Emitting approve_request for requestId: $requestId")
+        _pendingRequests.value = _pendingRequests.value.filter { it.requestId != requestId }
+    }
+
+    fun denyRequest(requestId: String) {
+        // TODO: Implement Socket.io emit('deny_request')
+        println("Socket.io: Emitting deny_request for requestId: $requestId")
+        _pendingRequests.value = _pendingRequests.value.filter { it.requestId != requestId }
+    }
+
     // All students
     val allStudents: StateFlow<List<Student>> = repository.allStudents
         .stateIn(
