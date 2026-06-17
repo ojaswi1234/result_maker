@@ -317,7 +317,7 @@ fun MainDashboardScreen(
                 }
                 ) { innerPadding ->
                 LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
+                columns = GridCells.Adaptive(minSize = 150.dp),
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
@@ -327,7 +327,7 @@ fun MainDashboardScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                 // HERO CARD: SCHOOL DETAILS (Full width)
-                item(span = { GridItemSpan(2) }) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
                     ElevatedCard(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -480,7 +480,7 @@ fun MainDashboardScreen(
                 }
 
                 // Coordinator details (Full width)
-                item(span = { GridItemSpan(2) }) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -504,7 +504,7 @@ fun MainDashboardScreen(
                     }
                 }
 
-                item(span = { GridItemSpan(2) }) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
                     Text(
                         text = stringResource(R.string.academic_modules),
                         fontSize = 16.sp,
@@ -598,7 +598,7 @@ fun DashboardModuleCard(
     ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(1.1f)
+            .height(150.dp)
             .border(
                 width = 1.dp,
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),

@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Navodhya Result Maker</string>
+    <string name="app_name">NVS Result</string>
     <string name="school_name_default">Global Academy</string>
     <string name="signed_in_context">Signed in context:</string>
     <string name="simulate_role_context">Simulate Role Context:</string>

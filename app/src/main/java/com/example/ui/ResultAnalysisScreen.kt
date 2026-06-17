@@ -930,13 +930,13 @@ fun ScorecardWidget(
     modifier: Modifier = Modifier
 ) {
     ElevatedCard(
-        modifier = modifier.aspectRatio(1.6f),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
         ) {
