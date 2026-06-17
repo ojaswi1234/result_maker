@@ -38,6 +38,7 @@ import com.example.R
 import com.example.data.Mark
 import com.example.data.SchoolSetting
 import com.example.data.Student
+import com.example.data.ExamConfig
 import com.example.viewmodel.AppViewModel
 import java.io.File
 import java.io.FileOutputStream
@@ -70,6 +71,7 @@ fun ResultGeneratorScreen(
     val allMarks by viewModel.allMarks.collectAsState()
     val schoolSetting by viewModel.schoolSetting.collectAsState()
     val allSectionSubjects by viewModel.allSectionSubjects.collectAsState()
+    val allExamConfigs by viewModel.allExamConfigs.collectAsState()
 
     val decodedBitmap = remember(schoolSetting.principalSignature) {
         if (schoolSetting.principalSignature.isNotEmpty()) {
@@ -589,7 +591,7 @@ fun ResultGeneratorScreen(
             if (selectedStudent != null && selectedClassSection != null) {
                 item {
                     val student = selectedStudent!!
-                    val rankMap = getSectionRanks(classFilteredStudents, allMarks, selectedReportLayout, sectionSubjects, allSectionSubjects)
+                    val rankMap = getSectionRanks(classFilteredStudents, allMarks, selectedReportLayout, sectionSubjects, allSectionSubjects, allExamConfigs)
                     val studentRank = rankMap[student.id] ?: 1
 
                     Card(
@@ -698,8 +700,9 @@ fun ResultGeneratorScreen(
                                         it.subjectName.equals(sub, ignoreCase = true) 
                                     }?.maxMarks ?: 100.0
 
-                                    val comp1 = getTermMarks(student.id, sub, "Term 1", allMarks)
-                                    val comp2 = getTermMarks(student.id, sub, "Term 2", allMarks)
+                                    val config = allExamConfigs.find { it.className == student.className }
+                                    val comp1 = getTermMarks(student.id, sub, "Term 1", allMarks, config)
+                                    val comp2 = getTermMarks(student.id, sub, "Term 2", allMarks, config)
                                     val finalTotal = comp1.total + comp2.total
                                     val finalPercentage = (finalTotal / (2.0 * weightage)) * 100.0
                                     val finalGrade = computeGrade(finalPercentage)
@@ -753,7 +756,7 @@ fun ResultGeneratorScreen(
                                                 Toast.makeText(context, context.getString(R.string.error_no_students_section), Toast.LENGTH_SHORT).show()
                                                 return@Button
                                             }
-                                            printCommonSheetPdf(context, schoolSetting, classFilteredStudents, allMarks, "UT", sectionSubjects, allSectionSubjects, viewModel)
+                                            printCommonSheetPdf(context, schoolSetting, classFilteredStudents, allMarks, "UT", sectionSubjects, allSectionSubjects, viewModel, allExamConfigs)
                                         },
                                         modifier = Modifier
                                             .weight(1f)
@@ -783,7 +786,7 @@ fun ResultGeneratorScreen(
                                                 Toast.makeText(context, context.getString(R.string.error_no_students_section), Toast.LENGTH_SHORT).show()
                                                 return@Button
                                             }
-                                            printCommonSheetPdf(context, schoolSetting, classFilteredStudents, allMarks, "Term", sectionSubjects, allSectionSubjects, viewModel)
+                                            printCommonSheetPdf(context, schoolSetting, classFilteredStudents, allMarks, "Term", sectionSubjects, allSectionSubjects, viewModel, allExamConfigs)
                                         },
                                         modifier = Modifier
                                             .weight(1f)
@@ -818,7 +821,7 @@ fun ResultGeneratorScreen(
                                                 Toast.makeText(context, context.getString(R.string.error_no_students_section), Toast.LENGTH_SHORT).show()
                                                 return@Button
                                             }
-                                            printResultPdf(context, schoolSetting, classFilteredStudents, allMarks, selectedReportLayout, sectionSubjects, allSectionSubjects)
+                                            printResultPdf(context, schoolSetting, classFilteredStudents, allMarks, selectedReportLayout, sectionSubjects, allSectionSubjects, allExamConfigs)
                                         },
                                         modifier = Modifier
                                             .weight(1f)
@@ -848,7 +851,7 @@ fun ResultGeneratorScreen(
                                                 Toast.makeText(context, context.getString(R.string.error_no_students_section), Toast.LENGTH_SHORT).show()
                                                 return@Button
                                             }
-                                            printResultPdf(context, schoolSetting, classFilteredStudents, allMarks, selectedReportLayout, sectionSubjects, allSectionSubjects)
+                                            printResultPdf(context, schoolSetting, classFilteredStudents, allMarks, selectedReportLayout, sectionSubjects, allSectionSubjects, allExamConfigs)
                                         },
                                         modifier = Modifier
                                             .weight(1f)
@@ -917,16 +920,18 @@ data class TermMarks(
     val ut1: Double,
     val ut2: Double,
     val theory: Double,
-    val internal: Double
+    val internal: Double,
+    val computedPa: Double
 ) {
-    val total: Double get() = ut1 + ut2 + theory + internal
+    val total: Double get() = computedPa + theory + internal
 }
 
 fun getTermMarks(
     studentId: Int,
     subjectName: String,
     termName: String,
-    marks: List<Mark>
+    marks: List<Mark>,
+    config: ExamConfig?
 ): TermMarks {
     val studentMarks = marks.filter {
         it.studentId == studentId &&
@@ -938,16 +943,24 @@ fun getTermMarks(
     val theoryType = if (termName == "Term 1") "Half Yearly" else "Annual Exam"
     val intType = if (termName == "Term 1") "Term 1 Internal" else "Term 2 Internal"
 
-    val ut1Mark = studentMarks.find { it.examType == ut1Type }
-    val ut2Mark = studentMarks.find { it.examType == ut2Type }
-    val theoryMark = studentMarks.find { it.examType == theoryType }
-    val intMark = studentMarks.find { it.examType == intType }
+    val ut1Mark = studentMarks.find { it.examType == ut1Type }?.marksObtained ?: 0.0
+    val ut2Mark = studentMarks.find { it.examType == ut2Type }?.marksObtained ?: 0.0
+    val theoryMark = studentMarks.find { it.examType == theoryType }?.marksObtained ?: 0.0
+    val intMark = studentMarks.find { it.examType == intType }?.marksObtained ?: 0.0
+
+    val paLogic = if (termName == "Term 1") config?.t1CalculationLogic else config?.t2CalculationLogic
+    val computedPa = when (paLogic) {
+        "Best" -> maxOf(ut1Mark, ut2Mark)
+        "Average" -> (ut1Mark + ut2Mark) / 2.0
+        else -> ut1Mark + ut2Mark // Defaults to sum if missing or unknown
+    }
 
     return TermMarks(
-        ut1 = ut1Mark?.marksObtained ?: 0.0,
-        ut2 = ut2Mark?.marksObtained ?: 0.0,
-        theory = theoryMark?.marksObtained ?: 0.0,
-        internal = intMark?.marksObtained ?: 0.0
+        ut1 = ut1Mark,
+        ut2 = ut2Mark,
+        theory = theoryMark,
+        internal = intMark,
+        computedPa = computedPa
     )
 }
 
@@ -980,11 +993,13 @@ fun getSectionRanks(
     allMarks: List<Mark>,
     reportLayout: String,
     subjectsList: List<String>,
-    allSectionSubjects: List<com.example.data.SectionSubject>
+    allSectionSubjects: List<com.example.data.SectionSubject>,
+    allExamConfigs: List<ExamConfig>
 ): Map<Int, Int> {
     val percentages = students.associate { student ->
         var totalObtained = 0.0
         var totalMax = 0.0
+        val config = allExamConfigs.find { it.className == student.className }
 
         for (sub in subjectsList) {
             val weightage = allSectionSubjects.find { 
@@ -994,16 +1009,16 @@ fun getSectionRanks(
             }?.maxMarks ?: 100.0
 
             if (reportLayout.contains("Term 1")) {
-                val comp = getTermMarks(student.id, sub, "Term 1", allMarks)
+                val comp = getTermMarks(student.id, sub, "Term 1", allMarks, config)
                 totalObtained += comp.total
                 totalMax += weightage
             } else if (reportLayout.contains("Term 2")) {
-                val comp = getTermMarks(student.id, sub, "Term 2", allMarks)
+                val comp = getTermMarks(student.id, sub, "Term 2", allMarks, config)
                 totalObtained += comp.total
                 totalMax += weightage
             } else { // Combined
-                val comp1 = getTermMarks(student.id, sub, "Term 1", allMarks)
-                val comp2 = getTermMarks(student.id, sub, "Term 2", allMarks)
+                val comp1 = getTermMarks(student.id, sub, "Term 1", allMarks, config)
+                val comp2 = getTermMarks(student.id, sub, "Term 2", allMarks, config)
                 totalObtained += comp1.total + comp2.total
                 totalMax += 2.0 * weightage
             }
@@ -1032,11 +1047,12 @@ fun printResultPdf(
     allMarks: List<Mark>,
     reportLayout: String,
     subjectsList: List<String>,
-    allSectionSubjects: List<com.example.data.SectionSubject>
+    allSectionSubjects: List<com.example.data.SectionSubject>,
+    allExamConfigs: List<ExamConfig>
 ) {
     try {
         val pageBlocks = StringBuilder()
-        val ranksMap = getSectionRanks(students, allMarks, reportLayout, subjectsList, allSectionSubjects)
+        val ranksMap = getSectionRanks(students, allMarks, reportLayout, subjectsList, allSectionSubjects, allExamConfigs)
 
         for (student in students) {
             val rankValue = ranksMap[student.id] ?: 1
@@ -1056,8 +1072,9 @@ fun printResultPdf(
                     }?.maxMarks ?: 100.0
                     termMaxSum += weightage
 
-                    val comp1 = getTermMarks(student.id, sub, "Term 1", allMarks)
-                    val comp2 = getTermMarks(student.id, sub, "Term 2", allMarks)
+                    val config = allExamConfigs.find { it.className == student.className }
+                    val comp1 = getTermMarks(student.id, sub, "Term 1", allMarks, config)
+                    val comp2 = getTermMarks(student.id, sub, "Term 2", allMarks, config)
                     val subjectCombinedTotal = (comp1.total * 0.4) + (comp2.total * 0.6)
                     val subjectCombinedGrade = computeGrade((subjectCombinedTotal / weightage) * 100.0)
 
@@ -1347,7 +1364,8 @@ fun printResultPdf(
                     }?.maxMarks ?: 100.0
                     termMaxSum += weightage
 
-                    val comp = getTermMarks(student.id, sub, activeTermName, allMarks)
+                    val config = allExamConfigs.find { it.className == student.className }
+                    val comp = getTermMarks(student.id, sub, activeTermName, allMarks, config)
                     totalSum += comp.total
 
                     subjectsRows.append("""
@@ -1660,7 +1678,8 @@ fun printCommonSheetPdf(
     mode: String, // "UT" or "Term"
     subjectsList: List<String>,
     allSectionSubjects: List<com.example.data.SectionSubject>,
-    viewModel: AppViewModel
+    viewModel: AppViewModel,
+    allExamConfigs: List<ExamConfig>
 ) {
     try {
         val pageBlocks = StringBuilder()
