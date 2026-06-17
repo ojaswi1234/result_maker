@@ -125,7 +125,7 @@ fun MainAppHost(viewModel: AppViewModel) {
                     onNavigateToMarksEntry = { navController.navigate("marks_entry") },
                     onNavigateToResultGenerator = { navController.navigate("result_generator") },
                     onNavigateToAnalysis = { navController.navigate("analysis") },
-                    onNavigateToAttendance = { navController.navigate("attendance_conduct") },
+                    onNavigateToAttendance = { navController.navigate("attendance") },
                     onNavigateToExamSettings = { navController.navigate("exam_settings") },
                     onLogout = {
                         navController.navigate("login") {
@@ -136,7 +136,7 @@ fun MainAppHost(viewModel: AppViewModel) {
             }
 
             // Attendance and Conduct module
-            composable("attendance_conduct") {
+            composable("attendance") {
                 AttendanceConductScreen(
                     viewModel = viewModel,
                     onBack = { navController.popBackStack() }
