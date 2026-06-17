@@ -47,6 +47,22 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             initialValue = emptyList()
         )
 
+    // All attendance records
+    val allAttendance: StateFlow<List<AttendanceRecord>> = repository.allAttendance
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    // All discipline records
+    val allDiscipline: StateFlow<List<DisciplineRecord>> = repository.allDiscipline
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
     init {
         val sharedPrefs = application.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
         val isDemoCleaned = sharedPrefs.getBoolean("is_demo_cleaned_v7", false)
@@ -366,7 +382,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         "History",
         "Computer Science",
         "Geography",
-        "Arts"
+        "Arts",
+        "Art Education",
+        "Games/Health"
     )
 
     // Section Subjects management
@@ -446,5 +464,54 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 )
             )
         }
+    }
+
+    // Attendance Functions
+    fun saveAttendance(studentId: Int, date: String, status: String, termName: String) {
+        executeDbAction("SAVE_ATTENDANCE") {
+            repository.saveAttendanceRecord(
+                AttendanceRecord(
+                    studentId = studentId,
+                    date = date,
+                    status = status,
+                    termName = termName
+                )
+            )
+        }
+    }
+
+    fun deleteAttendance(record: AttendanceRecord) {
+        executeDbAction("DELETE_ATTENDANCE") {
+            repository.deleteAttendanceRecord(record)
+        }
+    }
+
+    fun getAttendanceForStudent(studentId: Int, termName: String): Flow<List<AttendanceRecord>> {
+        return repository.getAttendanceForStudentFlow(studentId, termName)
+    }
+
+    // Discipline Functions
+    fun saveDiscipline(studentId: Int, date: String, description: String, grade: String, termName: String) {
+        executeDbAction("SAVE_DISCIPLINE") {
+            repository.saveDisciplineRecord(
+                DisciplineRecord(
+                    studentId = studentId,
+                    date = date,
+                    incidentDescription = description,
+                    grade = grade,
+                    termName = termName
+                )
+            )
+        }
+    }
+
+    fun deleteDiscipline(record: DisciplineRecord) {
+        executeDbAction("DELETE_DISCIPLINE") {
+            repository.deleteDisciplineRecord(record)
+        }
+    }
+
+    fun getDisciplineForStudent(studentId: Int, termName: String): Flow<List<DisciplineRecord>> {
+        return repository.getDisciplineForStudentFlow(studentId, termName)
     }
 }

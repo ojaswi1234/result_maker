@@ -6,6 +6,8 @@ class SchoolRepository(private val db: AppDatabase) {
     val schoolSetting: Flow<SchoolSetting?> = db.schoolSettingDao.getSettingsFlow()
     val allStudents: Flow<List<Student>> = db.studentDao.getAllStudentsFlow()
     val allMarks: Flow<List<Mark>> = db.markDao.getAllMarksFlow()
+    val allAttendance: Flow<List<AttendanceRecord>> = db.attendanceDao.getAllAttendanceFlow()
+    val allDiscipline: Flow<List<DisciplineRecord>> = db.disciplineDao.getAllDisciplineFlow()
 
     suspend fun getSchoolSettingDirect(): SchoolSetting {
         return db.schoolSettingDao.getSettings() ?: SchoolSetting().also {
@@ -97,5 +99,39 @@ class SchoolRepository(private val db: AppDatabase) {
 
     suspend fun deleteSectionSubjectByKeys(className: String, sectionName: String, subjectName: String) {
         db.sectionSubjectDao.deleteByKeys(className, sectionName, subjectName)
+    }
+
+    // Attendance operations
+    fun getAttendanceForStudentFlow(studentId: Int, termName: String): Flow<List<AttendanceRecord>> {
+        return db.attendanceDao.getAttendanceForStudentFlow(studentId, termName)
+    }
+
+    suspend fun getAttendanceForStudent(studentId: Int, termName: String): List<AttendanceRecord> {
+        return db.attendanceDao.getAttendanceForStudent(studentId, termName)
+    }
+
+    suspend fun saveAttendanceRecord(record: AttendanceRecord) {
+        db.attendanceDao.insertOrUpdate(record)
+    }
+
+    suspend fun deleteAttendanceRecord(record: AttendanceRecord) {
+        db.attendanceDao.delete(record)
+    }
+
+    // Discipline operations
+    fun getDisciplineForStudentFlow(studentId: Int, termName: String): Flow<List<DisciplineRecord>> {
+        return db.disciplineDao.getDisciplineForStudentFlow(studentId, termName)
+    }
+
+    suspend fun getDisciplineForStudent(studentId: Int, termName: String): List<DisciplineRecord> {
+        return db.disciplineDao.getDisciplineForStudent(studentId, termName)
+    }
+
+    suspend fun saveDisciplineRecord(record: DisciplineRecord) {
+        db.disciplineDao.insertOrUpdate(record)
+    }
+
+    suspend fun deleteDisciplineRecord(record: DisciplineRecord) {
+        db.disciplineDao.delete(record)
     }
 }

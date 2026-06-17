@@ -555,22 +555,40 @@ fun MarksEntryScreen(
                                     // Input Col
                                     val max = getMaxMarksForAssessment(activeExamType)
                                     val score = viewModel.getMarksForExam(student.id, selectedSubject!!, activeExamType)
-                                    
-                                    SingleMarkInputCell(
-                                        initialValue = score,
-                                        maxMarks = max,
-                                        onSave = { valVal ->
-                                            viewModel.updateMarksForExam(
-                                                studentId = student.id,
-                                                subjectName = selectedSubject!!,
-                                                examType = activeExamType,
-                                                newValue = valVal,
-                                                maxMarks = max
-                                            )
-                                        },
-                                        isReadOnly = activeRole == "Principal/Coordinator",
-                                        width = 120.dp
-                                    )
+                                    val isCoScholastic = selectedSubject == "Art Education" || selectedSubject == "Games/Health"
+
+                                    if (isCoScholastic) {
+                                        GradeSelectionCell(
+                                            initialValue = score,
+                                            onSave = { gradeValue ->
+                                                viewModel.updateMarksForExam(
+                                                    studentId = student.id,
+                                                    subjectName = selectedSubject!!,
+                                                    examType = activeExamType,
+                                                    newValue = gradeValue,
+                                                    maxMarks = 3.0
+                                                )
+                                            },
+                                            isReadOnly = activeRole == "Principal/Coordinator",
+                                            width = 120.dp
+                                        )
+                                    } else {
+                                        SingleMarkInputCell(
+                                            initialValue = score,
+                                            maxMarks = max,
+                                            onSave = { valVal ->
+                                                viewModel.updateMarksForExam(
+                                                    studentId = student.id,
+                                                    subjectName = selectedSubject!!,
+                                                    examType = activeExamType,
+                                                    newValue = valVal,
+                                                    maxMarks = max
+                                                )
+                                            },
+                                            isReadOnly = activeRole == "Principal/Coordinator",
+                                            width = 120.dp
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -689,5 +707,50 @@ fun SingleMarkInputCell(
                 )
             }
         )
+    }
+}
+
+@Composable
+fun GradeSelectionCell(
+    initialValue: Double?,
+    onSave: (String) -> Unit,
+    isReadOnly: Boolean,
+    width: androidx.compose.ui.unit.Dp
+) {
+    val grades = listOf("A", "B", "C")
+    val gradeMap = mapOf(3.0 to "A", 2.0 to "B", 1.0 to "C")
+    val reverseMap = mapOf("A" to "3", "B" to "2", "C" to "1")
+    
+    val currentGrade = gradeMap[initialValue] ?: ""
+    var expanded by remember { mutableStateOf(false) }
+
+    Box(modifier = Modifier.width(width), contentAlignment = Alignment.Center) {
+        OutlinedButton(
+            onClick = { if (!isReadOnly) expanded = true },
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = Color.White
+            )
+        ) {
+            Text(
+                text = currentGrade.ifEmpty { "Grade" },
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 18.sp,
+                color = if (currentGrade.isEmpty()) Color.Gray else MaterialTheme.colorScheme.onSurface
+            )
+        }
+        
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            grades.forEach { g ->
+                DropdownMenuItem(
+                    text = { Text(g, fontWeight = FontWeight.Bold) },
+                    onClick = {
+                        onSave(reverseMap[g]!!)
+                        expanded = false
+                    }
+                )
+            }
+        }
     }
 }

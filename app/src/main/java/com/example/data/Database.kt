@@ -43,6 +43,25 @@ data class Mark(
     val maxMarks: Double = 100.0
 )
 
+@Entity(tableName = "attendance_records")
+data class AttendanceRecord(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val studentId: Int,
+    val date: String, // ISO date string
+    val status: String, // "Present", "Absent", "Leave"
+    val termName: String = "Term 1"
+)
+
+@Entity(tableName = "discipline_records")
+data class DisciplineRecord(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val studentId: Int,
+    val date: String,
+    val incidentDescription: String,
+    val grade: String, // "A", "B", "C"
+    val termName: String = "Term 1"
+)
+
 @Entity(tableName = "exam_configs")
 data class ExamConfig(
     @PrimaryKey val className: String, // e.g. "Grade 10"
@@ -157,6 +176,42 @@ interface MarkDao {
     suspend fun deleteMarksForStudent(studentId: Int)
 }
 
+@Dao
+interface AttendanceDao {
+    @Query("SELECT * FROM attendance_records")
+    fun getAllAttendanceFlow(): Flow<List<AttendanceRecord>>
+
+    @Query("SELECT * FROM attendance_records WHERE studentId = :studentId AND termName = :termName")
+    fun getAttendanceForStudentFlow(studentId: Int, termName: String): Flow<List<AttendanceRecord>>
+
+    @Query("SELECT * FROM attendance_records WHERE studentId = :studentId AND termName = :termName")
+    suspend fun getAttendanceForStudent(studentId: Int, termName: String): List<AttendanceRecord>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrUpdate(record: AttendanceRecord)
+
+    @Delete
+    suspend fun delete(record: AttendanceRecord)
+}
+
+@Dao
+interface DisciplineDao {
+    @Query("SELECT * FROM discipline_records")
+    fun getAllDisciplineFlow(): Flow<List<DisciplineRecord>>
+
+    @Query("SELECT * FROM discipline_records WHERE studentId = :studentId AND termName = :termName")
+    fun getDisciplineForStudentFlow(studentId: Int, termName: String): Flow<List<DisciplineRecord>>
+
+    @Query("SELECT * FROM discipline_records WHERE studentId = :studentId AND termName = :termName")
+    suspend fun getDisciplineForStudent(studentId: Int, termName: String): List<DisciplineRecord>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrUpdate(record: DisciplineRecord)
+
+    @Delete
+    suspend fun delete(record: DisciplineRecord)
+}
+
 @Entity(
     tableName = "section_subjects",
     primaryKeys = ["className", "sectionName", "subjectName"]
@@ -193,8 +248,8 @@ interface SectionSubjectDao {
 }
 
 @Database(
-    entities = [SchoolSetting::class, Student::class, Mark::class, ExamConfig::class, SectionSubject::class],
-    version = 7, // Incremented version to add parent names and school logo fields
+    entities = [SchoolSetting::class, Student::class, Mark::class, ExamConfig::class, SectionSubject::class, AttendanceRecord::class, DisciplineRecord::class],
+    version = 8, // Incremented version to add Attendance and Discipline entities
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -203,6 +258,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract val markDao: MarkDao
     abstract val examConfigDao: ExamConfigDao
     abstract val sectionSubjectDao: SectionSubjectDao
+    abstract val attendanceDao: AttendanceDao
+    abstract val disciplineDao: DisciplineDao
 
     companion object {
         @Volatile

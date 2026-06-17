@@ -555,6 +555,17 @@ fun MainDashboardScreen(
                         testTag = "dashboard_analysis_button"
                     )
                 }
+
+                item {
+                    DashboardModuleCard(
+                        title = "Attendance & Conduct",
+                        subtitle = "Daily Register & Discipline",
+                        icon = Icons.Default.HowToReg,
+                        colorAccent = Color(0xFF8E24AA),
+                        onClick = { /* Navigate to Attendance */ },
+                        testTag = "dashboard_attendance_button"
+                    )
+                }
             }
         }
 
