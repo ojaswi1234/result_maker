@@ -328,6 +328,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun logout(onComplete: () -> Unit) {
+         com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
         _authState.value = AuthState.Unauthenticated
         onComplete()
     }

@@ -209,47 +209,50 @@ fun LoginScreen(
                     // Google Sign-In Button Refinement
                     Button(
                         onClick = {
-                            
-                            val clientId = "265210770390-p994rsmnojaja50uf6g4jfu8q0mo2jk8.apps.googleusercontent.com"
-                            val credentialManager = androidx.credentials.CredentialManager.create(context)
-                            val googleIdOption = com.google.android.libraries.identity.googleid.GetGoogleIdOption.Builder()
-                                .setFilterByAuthorizedAccounts(false)
-                                .setServerClientId(clientId)
-                                .setAutoSelectEnabled(false)
-                                .build()
+    val clientId = "265210770390-p994rsmnojaja50uf6g4jfu8q0mo2jk8.apps.googleusercontent.com"
+    val credentialManager = androidx.credentials.CredentialManager.create(context)
 
-                            val request = androidx.credentials.GetCredentialRequest.Builder()
-                                .addCredentialOption(googleIdOption)
-                                .build()
+    // Use GetSignInWithGoogleOption, NOT GetGoogleIdOption
+    // GetGoogleIdOption = One Tap (fails silently for new/unauthorized users)
+    // GetSignInWithGoogleOption = full account picker, works always
+    val googleSignInOption = com.google.android.libraries.identity.googleid
+        .GetSignInWithGoogleOption.Builder(clientId)
+        .build()
 
-                            coroutineScope.launch {
-                                try {
-                                    val result = credentialManager.getCredential(
-                                        context = context,
-                                        request = request
-                                    )
-                                    val credential = result.credential
-                                    if (credential is androidx.credentials.CustomCredential &&
-                                        credential.type == com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
-                                        val googleIdTokenCredential = com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.createFrom(credential.data)
-                                        val idToken = googleIdTokenCredential.idToken
-                                        viewModel.signInWithGoogle(
-                                            idToken = idToken,
-                                            onLoginSuccess = onLoginSuccess,
-                                            onError = { error -> authErrorMessage = error }
-                                        )
-                                    } else {
-                                        authErrorMessage = "Google login mismatch: ${credential.type}"
-                                    }
-                                } catch (e: androidx.credentials.exceptions.GetCredentialException) {
-                                    authErrorMessage = "Credential Error: ${e.message}"
-                                } catch (e: androidx.credentials.exceptions.GetCredentialCancellationException) {
-                                    authErrorMessage = "Login Cancelled: ${e.message}"
-                                } catch (e: Exception) {
-                                    authErrorMessage = "Error: ${e.javaClass.simpleName} - ${e.message}"
-                                }
-                            }
-                        },
+    val request = androidx.credentials.GetCredentialRequest.Builder()
+        .addCredentialOption(googleSignInOption)
+        .build()
+
+    coroutineScope.launch {
+        try {
+            val result = credentialManager.getCredential(
+                context = context,
+                request = request
+            )
+            val credential = result.credential
+            if (credential is androidx.credentials.CustomCredential &&
+                credential.type == com.google.android.libraries.identity.googleid
+                    .GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+            ) {
+                val googleIdTokenCredential = com.google.android.libraries.identity.googleid
+                    .GoogleIdTokenCredential.createFrom(credential.data)
+                viewModel.signInWithGoogle(
+                    idToken = googleIdTokenCredential.idToken,
+                    onLoginSuccess = onLoginSuccess,
+                    onError = { error -> authErrorMessage = error }
+                )
+            } else {
+                authErrorMessage = "Google login mismatch: ${credential.type}"
+            }
+        } catch (e: androidx.credentials.exceptions.GetCredentialCancellationException) {
+            // user dismissed — no error shown
+        } catch (e: androidx.credentials.exceptions.GetCredentialException) {
+            authErrorMessage = "Credential Error: ${e.message}"
+        } catch (e: Exception) {
+            authErrorMessage = "Error: ${e.javaClass.simpleName} - ${e.message}"
+        }
+    }
+},
                         modifier = Modifier
                             .fillMaxWidth()
                             .wrapContentHeight()
