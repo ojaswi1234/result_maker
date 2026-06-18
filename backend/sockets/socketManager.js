@@ -13,11 +13,12 @@ module.exports = (io) => {
 
         // Teacher requests to join an Admin's hierarchy
         socket.on('request_join', async (data) => {
-            const { teacherName, mobileNumber, coordinatorId } = data;
+            const { teacherName, mobileNumber, coordinatorId, teacherGoogleId } = data;
             
             try {
                 const newRequest = new JoinRequest({
                     teacherName,
+                    teacherGoogleId,
                     mobileNumber,
                     coordinatorId
                 });

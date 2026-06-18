@@ -15,7 +15,7 @@ import java.util.UUID
 
 sealed interface AuthState {
     object Unauthenticated : AuthState
-    data class Authenticated(val email: String, val name: String, val photoUrl: String?) : AuthState
+    data class Authenticated(val email: String, val name: String, val photoUrl: String?, val googleId: String) : AuthState
     data class VerificationPending(val email: String) : AuthState
 }
 
@@ -107,6 +107,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun updateCoordinatorId(id: String?) {
         _coordinatorId.value = id
+        id?.let {
+            socket?.emit("join_room", it)
+            println("Socket.io: Emitted join_room for $it")
+        }
     }
 
     fun setWaitingForApproval(waiting: Boolean) {
@@ -117,30 +121,34 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun requestAccess(coordId: String, mobile: String) {
         val auth = authState.value
         val name = if (auth is AuthState.Authenticated) auth.name else "Teacher"
+        val googleId = if (auth is AuthState.Authenticated) auth.googleId else ""
         
         val data = JSONObject().apply {
             put("teacherName", name)
             put("mobileNumber", mobile)
             put("coordinatorId", coordId)
+            put("teacherGoogleId", googleId)
         }
         socket?.emit("request_join", data)
-        println("Socket.io: Emitting request_join for coordId: $coordId, mobile: $mobile")
+        println("Socket.io: Emitting request_join for coordId: $coordId, mobile: $mobile, teacherGoogleId: $googleId")
     }
 
-    fun approveRequest(requestId: String) {
+    fun approveRequest(requestId: String, teacherGoogleId: String) {
         val data = JSONObject().apply {
             put("requestId", requestId)
+            put("teacherGoogleId", teacherGoogleId)
         }
         socket?.emit("approve_request", data)
-        println("Socket.io: Emitting approve_request for requestId: $requestId")
+        println("Socket.io: Emitting approve_request for requestId: $requestId, teacherGoogleId: $teacherGoogleId")
     }
 
-    fun denyRequest(requestId: String) {
+    fun denyRequest(requestId: String, teacherGoogleId: String) {
         val data = JSONObject().apply {
             put("requestId", requestId)
+            put("teacherGoogleId", teacherGoogleId)
         }
         socket?.emit("deny_request", data)
-        println("Socket.io: Emitting deny_request for requestId: $requestId")
+        println("Socket.io: Emitting deny_request for requestId: $requestId, teacherGoogleId: $teacherGoogleId")
     }
 
     // All students
@@ -202,7 +210,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 _authState.value = AuthState.Authenticated(
                     email = currentUser.email ?: "",
                     name = currentUser.displayName ?: currentUser.email?.substringBefore("@") ?: "User",
-                    photoUrl = null
+                    photoUrl = null,
+                    googleId = currentUser.uid
                 )
             }
         }
@@ -228,6 +237,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 val request = JoinRequest(
                     requestId = data.optString("_id", UUID.randomUUID().toString()),
                     teacherName = data.optString("teacherName"),
+                    teacherGoogleId = data.optString("teacherGoogleId"),
                     mobileNumber = data.optString("mobileNumber"),
                     coordinatorId = data.optString("coordinatorId")
                 )
@@ -267,7 +277,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         _authState.value = AuthState.Authenticated(
                             email = user.email!!,
                             name = user.displayName ?: user.email!!.substringBefore("@"),
-                            photoUrl = null
+                            photoUrl = null,
+                            googleId = user.uid
                         )
                         onLoginSuccess()
                     } else {
@@ -305,7 +316,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         getApplication<Application>().getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
             .edit().putLong("login_timestamp", System.currentTimeMillis()).apply()
 
-        _authState.value = AuthState.Authenticated(email, email.substringBefore("@"), null)
+        val uid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: ""
+        _authState.value = AuthState.Authenticated(email, email.substringBefore("@"), null, uid)
         onComplete()
     }
 

@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const JoinRequestSchema = new mongoose.Schema({
     teacherName: { type: String, required: true },
+    teacherGoogleId: { type: String, required: true },
     mobileNumber: { type: String, required: true },
     coordinatorId: { type: String, required: true },
     status: { type: String, enum: ["pending", "approved", "denied"], default: "pending" },

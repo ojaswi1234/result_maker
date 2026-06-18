@@ -626,10 +626,10 @@ fun MainDashboardScreen(
                                         Text(request.mobileNumber, fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
                                     }
                                     Row {
-                                        IconButton(onClick = { viewModel.approveRequest(request.requestId) }) {
+                                        IconButton(onClick = { viewModel.approveRequest(request.requestId, request.teacherGoogleId) }) {
                                             Icon(Icons.Default.Check, contentDescription = "Approve", tint = Color(0xFF0F9D58))
                                         }
-                                        IconButton(onClick = { viewModel.denyRequest(request.requestId) }) {
+                                        IconButton(onClick = { viewModel.denyRequest(request.requestId, request.teacherGoogleId) }) {
                                             Icon(Icons.Default.Close, contentDescription = "Deny", tint = MaterialTheme.colorScheme.error)
                                         }
                                     }
