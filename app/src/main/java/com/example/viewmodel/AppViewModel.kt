@@ -139,7 +139,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             put("teacherGoogleId", teacherGoogleId)
         }
         socket?.emit("approve_request", data)
-        println("Socket.io: Emitting approve_request for requestId: $requestId, teacherGoogleId: $teacherGoogleId")
+        // Remove from local UI state instantly
+        _pendingRequests.value = _pendingRequests.value.filter { it.requestId != requestId }
+        println("Socket.io: Emitting approve_request for requestId: $requestId")
     }
 
     fun denyRequest(requestId: String, teacherGoogleId: String) {
@@ -148,7 +150,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             put("teacherGoogleId", teacherGoogleId)
         }
         socket?.emit("deny_request", data)
-        println("Socket.io: Emitting deny_request for requestId: $requestId, teacherGoogleId: $teacherGoogleId")
+        // Remove from local UI state instantly
+        _pendingRequests.value = _pendingRequests.value.filter { it.requestId != requestId }
+        println("Socket.io: Emitting deny_request for requestId: $requestId")
     }
 
     // All students
@@ -241,7 +245,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     mobileNumber = data.optString("mobileNumber"),
                     coordinatorId = data.optString("coordinatorId")
                 )
-                _pendingRequests.value = _pendingRequests.value + request
+                // Prevent duplicates on network reconnects
+                if (_pendingRequests.value.none { it.requestId == request.requestId }) {
+                    _pendingRequests.value = _pendingRequests.value + request
+                }
             }
 
             socket?.on("join_request_resolved") { args ->
