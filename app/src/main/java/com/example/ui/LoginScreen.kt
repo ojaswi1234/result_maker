@@ -209,7 +209,8 @@ fun LoginScreen(
                     // Google Sign-In Button Refinement
                     Button(
                         onClick = {
-                            val clientId = "265210770390-po0mrell69mqk6jeessik4b074hkt1kf.apps.googleusercontent.com"
+                            
+                            val clientId = "265210770390-p994rsmnojaja50uf6g4jfu8q0mo2jk8.apps.googleusercontent.com"
                             val credentialManager = androidx.credentials.CredentialManager.create(context)
                             val googleIdOption = com.google.android.libraries.identity.googleid.GetGoogleIdOption.Builder()
                                 .setFilterByAuthorizedAccounts(false)
