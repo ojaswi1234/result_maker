@@ -15,4 +15,12 @@
 .cxx
 local.properties
 .env
+
 debug.keystore
+
+
+/backend/node_modules
+/backend/node_modules/
+/backend/dist/
+/backend/build/
+/backend/.env

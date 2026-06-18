@@ -118,6 +118,7 @@ dependencies {
   implementation(libs.jxl)
   // implementation(libs.play.services.location)
   implementation(libs.retrofit)
+  implementation("io.socket:socket.io-client:2.1.0")
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)

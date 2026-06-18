@@ -8,6 +8,10 @@ import com.example.data.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
+import io.socket.client.IO
+import io.socket.client.Socket
+import org.json.JSONObject
+import java.util.UUID
 
 sealed interface AuthState {
     object Unauthenticated : AuthState
@@ -24,6 +28,8 @@ data class MonthlyAttendanceSummary(
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val database = AppDatabase.getDatabase(application)
     val repository = SchoolRepository(database)
+
+    private var socket: Socket? = null
 
     // Bulk Attendance Entry State
     private val _monthlyAttendanceSummaries = MutableStateFlow<Map<Int, MonthlyAttendanceSummary>>(emptyMap())
@@ -107,22 +113,34 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         _isWaitingForApproval.value = waiting
     }
 
-    // Socket.io Placeholders
+    // Socket.io Implementation
     fun requestAccess(coordId: String, mobile: String) {
-        // TODO: Implement Socket.io emit('request_join')
+        val auth = authState.value
+        val name = if (auth is AuthState.Authenticated) auth.name else "Teacher"
+        
+        val data = JSONObject().apply {
+            put("teacherName", name)
+            put("mobileNumber", mobile)
+            put("coordinatorId", coordId)
+        }
+        socket?.emit("request_join", data)
         println("Socket.io: Emitting request_join for coordId: $coordId, mobile: $mobile")
     }
 
     fun approveRequest(requestId: String) {
-        // TODO: Implement Socket.io emit('approve_request')
+        val data = JSONObject().apply {
+            put("requestId", requestId)
+        }
+        socket?.emit("approve_request", data)
         println("Socket.io: Emitting approve_request for requestId: $requestId")
-        _pendingRequests.value = _pendingRequests.value.filter { it.requestId != requestId }
     }
 
     fun denyRequest(requestId: String) {
-        // TODO: Implement Socket.io emit('deny_request')
+        val data = JSONObject().apply {
+            put("requestId", requestId)
+        }
+        socket?.emit("deny_request", data)
         println("Socket.io: Emitting deny_request for requestId: $requestId")
-        _pendingRequests.value = _pendingRequests.value.filter { it.requestId != requestId }
     }
 
     // All students
@@ -193,6 +211,44 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             // Check if settings need to be initialized or fetched
             repository.getSchoolSettingDirect()
         }
+
+        // Initialize Socket.io
+        try {
+            socket = IO.socket(BACKEND_URL)
+            socket?.on(Socket.EVENT_CONNECT) {
+                println("Socket.io: Connected to backend")
+                // If coordinatorId is already known (e.g. from local storage/prev session), join room
+                coordinatorId.value?.let { id ->
+                    socket?.emit("join_room", id)
+                }
+            }
+            
+            socket?.on("new_join_request") { args ->
+                val data = args[0] as JSONObject
+                val request = JoinRequest(
+                    requestId = data.optString("_id", UUID.randomUUID().toString()),
+                    teacherName = data.optString("teacherName"),
+                    mobileNumber = data.optString("mobileNumber"),
+                    coordinatorId = data.optString("coordinatorId")
+                )
+                _pendingRequests.value = _pendingRequests.value + request
+            }
+
+            socket?.on("join_request_resolved") { args ->
+                val data = args[0] as JSONObject
+                val status = data.optString("status")
+                if (status == "approved") {
+                    _isWaitingForApproval.value = false
+                    _currentUserRole.value = "Teacher"
+                } else if (status == "denied") {
+                    _isWaitingForApproval.value = false
+                }
+            }
+
+            socket?.connect()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     // Firebase Google Auth
@@ -256,6 +312,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun logout(onComplete: () -> Unit) {
         _authState.value = AuthState.Unauthenticated
         onComplete()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        socket?.disconnect()
+        socket?.off()
     }
 
     // Helper wrapper to execute database actions, handle live backup & catch errors in the Excel sheet

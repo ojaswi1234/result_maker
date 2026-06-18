@@ -40,6 +40,7 @@ import com.example.data.SchoolSetting
 import com.example.data.Student
 import com.example.data.ExamConfig
 import com.example.viewmodel.AppViewModel
+import com.example.viewmodel.MonthlyAttendanceSummary
 import java.io.File
 import java.io.FileOutputStream
 import android.net.Uri
@@ -57,6 +58,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Sync
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 
@@ -67,6 +69,7 @@ fun ResultGeneratorScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val allStudents by viewModel.allStudents.collectAsState()
     val allMarks by viewModel.allMarks.collectAsState()
     val schoolSetting by viewModel.schoolSetting.collectAsState()
@@ -1089,7 +1092,7 @@ fun ResultGeneratorScreen(
 
                 Button(
                     onClick = {
-                        val summaries = attendanceInputs.map { (studentId, pair) ->
+                        val summaries = attendanceInputs.entries.map { (studentId: Int, pair: Pair<String, String>) ->
                             MonthlyAttendanceSummary(
                                 studentId = studentId,
                                 attendedClasses = pair.first.toIntOrNull() ?: 0,
@@ -1602,6 +1605,7 @@ fun printResultPdf(
                 val subjectsRows = StringBuilder()
                 var totalSum = 0.0
                 var termMaxSum = 0.0
+                val isSingleExam = reportLayout != "Term 1" && reportLayout != "Annual" && reportLayout != "Term 2"
 
                 for (sub in subjectsList) {
                     val weightage = allSectionSubjects.find { 
@@ -1614,7 +1618,6 @@ fun printResultPdf(
                     val config = allExamConfigs.find { it.className == student.className }
                     val comp = getTermMarks(student.id, sub, activeTermName, allMarks, config)
                     
-                    val isSingleExam = reportLayout != "Term 1" && reportLayout != "Annual" && reportLayout != "Term 2"
                     if (isSingleExam) {
                         val ptMark = when (reportLayout) {
                             "PT 1", "UT 1" -> comp.ut1

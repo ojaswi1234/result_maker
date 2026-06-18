@@ -30,6 +30,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import com.example.data.JoinRequest
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -608,11 +611,11 @@ fun MainDashboardScreen(
                     if (pendingRequests.isEmpty()) {
                         Text("No pending requests.", color = MaterialTheme.colorScheme.outline)
                     } else {
-                        androidx.compose.foundation.lazy.LazyColumn(
+                        LazyColumn(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)
                         ) {
-                            androidx.compose.foundation.lazy.items(pendingRequests) { request ->
+                            items(items = pendingRequests) { request: JoinRequest ->
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
