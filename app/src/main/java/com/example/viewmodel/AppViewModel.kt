@@ -10,7 +10,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import io.socket.client.IO
 import io.socket.client.Socket
+import org.json.JSONArray
 import org.json.JSONObject
+import java.net.URL
 import java.util.UUID
 
 sealed interface AuthState {
@@ -110,6 +112,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         id?.let {
             socket?.emit("join_room", it)
             println("Socket.io: Emitted join_room for $it")
+            
+            // BUG FIX: Persist coordinatorId to SharedPreferences
+            getApplication<Application>()
+                .getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+                .edit().putString("coordinator_id", it).apply()
         }
     }
 
@@ -220,6 +227,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
+        // BUG FIX: Restore coordinatorId and role from SharedPreferences
+        val savedCoordId = sharedPrefs.getString("coordinator_id", null)
+        if (savedCoordId != null) {
+            _coordinatorId.value = savedCoordId
+            _currentUserRole.value = "Admin"
+        }
+
         viewModelScope.launch(Dispatchers.IO) {
             // Check if settings need to be initialized or fetched
             repository.getSchoolSettingDirect()
@@ -233,6 +247,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 // If coordinatorId is already known (e.g. from local storage/prev session), join room
                 coordinatorId.value?.let { id ->
                     socket?.emit("join_room", id)
+                    // BUG FIX: Fetch missed pending requests on reconnect
+                    fetchPendingRequestsFromServer(id)
                 }
             }
             
@@ -264,6 +280,38 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             socket?.connect()
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+    }
+
+    /**
+     * Fetches pending join requests from the server via REST.
+     * Fix for Bug 1: Recovery when socket events are missed during backend downtime.
+     */
+    private fun fetchPendingRequestsFromServer(coordinatorId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val url = "$BACKEND_URL/pending-requests/$coordinatorId"
+                val response = URL(url).readText()
+                val jsonArray = JSONArray(response)
+                val fetchedRequests = mutableListOf<com.example.data.JoinRequest>()
+                
+                for (i in 0 until jsonArray.length()) {
+                    val data = jsonArray.getJSONObject(i)
+                    fetchedRequests.add(com.example.data.JoinRequest(
+                        requestId = data.optString("_id"),
+                        teacherName = data.optString("teacherName"),
+                        teacherGoogleId = data.optString("teacherGoogleId"),
+                        mobileNumber = data.optString("mobileNumber"),
+                        coordinatorId = data.optString("coordinatorId")
+                    ))
+                }
+                
+                // Update state with fresh list from server
+                _pendingRequests.value = fetchedRequests
+            } catch (e: Exception) {
+                println("Error fetching pending requests: ${e.message}")
+                e.printStackTrace()
+            }
         }
     }
 
@@ -330,6 +378,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun logout(onComplete: () -> Unit) {
          com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
         _authState.value = AuthState.Unauthenticated
+        
+        // BUG FIX: Clear coordinatorId from SharedPreferences on logout
+        getApplication<Application>()
+            .getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+            .edit().remove("coordinator_id").apply()
+            
         onComplete()
     }
 

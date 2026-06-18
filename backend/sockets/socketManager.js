@@ -24,8 +24,15 @@ module.exports = (io) => {
                 });
                 await newRequest.save();
 
-                // Notify all admins in that room
-                io.to(coordinatorId).emit('new_join_request', newRequest);
+                // BUG FIX: Emit plain object with string ID instead of raw Mongoose doc.
+                // This ensures the Android client receives a plain string for _id.
+                io.to(coordinatorId).emit('new_join_request', {
+                    _id: newRequest._id.toString(),
+                    teacherName: newRequest.teacherName,
+                    teacherGoogleId: newRequest.teacherGoogleId,
+                    mobileNumber: newRequest.mobileNumber,
+                    coordinatorId: newRequest.coordinatorId
+                });
             } catch (err) {
                 console.error('Error in request_join:', err);
             }
