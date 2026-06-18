@@ -21,29 +21,20 @@ android {
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
-   signingConfigs {
-    // 1. Define the persistent local debug keystore
-    getByName("debug") {
-      storeFile = file("debug.keystore")
-      storePassword = "android"
-      keyAlias = "androiddebugkey"
-      keyPassword = "android"
-    }
-
-    create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      val keystoreFile = file(keystorePath)
- 
-      if (keystoreFile.exists()) {
-        storeFile = keystoreFile
-        storePassword = System.getenv("STORE_PASSWORD")
-        keyAlias = "upload"
-        keyPassword = System.getenv("KEY_PASSWORD")
-      } else {
-        // Fallback to our explicit debug signing config to avoid breaking "gradle build" locally
-        initWith(getByName("debug"))
+  signingConfigs {
+      getByName("debug") {
+          storeFile = file("debug.keystore")
+          storePassword = "android"
+          keyAlias = "androiddebugkey"
+          keyPassword = "android"
       }
-    }
+
+      create("release") {
+          storeFile = file("${rootDir}/my-release-key.jks")
+          storePassword = "android"
+          keyAlias = "my-alias"
+          keyPassword = "android"
+      }
   }
 
   buildTypes {

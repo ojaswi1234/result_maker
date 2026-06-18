@@ -123,6 +123,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val name = if (auth is AuthState.Authenticated) auth.name else "Teacher"
         val googleId = if (auth is AuthState.Authenticated) auth.googleId else ""
         
+        // CRITICAL FIX: Teacher must join their own ID room to hear the response
+        if (googleId.isNotEmpty()) {
+            socket?.emit("join_room", googleId)
+        }
+        
         val data = JSONObject().apply {
             put("teacherName", name)
             put("mobileNumber", mobile)
@@ -130,7 +135,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             put("teacherGoogleId", googleId)
         }
         socket?.emit("request_join", data)
-        println("Socket.io: Emitting request_join for coordId: $coordId, mobile: $mobile, teacherGoogleId: $googleId")
     }
 
     fun approveRequest(requestId: String, teacherGoogleId: String) {
@@ -139,9 +143,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             put("teacherGoogleId", teacherGoogleId)
         }
         socket?.emit("approve_request", data)
-        // Remove from local UI state instantly
         _pendingRequests.value = _pendingRequests.value.filter { it.requestId != requestId }
-        println("Socket.io: Emitting approve_request for requestId: $requestId")
     }
 
     fun denyRequest(requestId: String, teacherGoogleId: String) {
@@ -150,9 +152,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             put("teacherGoogleId", teacherGoogleId)
         }
         socket?.emit("deny_request", data)
-        // Remove from local UI state instantly
         _pendingRequests.value = _pendingRequests.value.filter { it.requestId != requestId }
-        println("Socket.io: Emitting deny_request for requestId: $requestId")
     }
 
     // All students
@@ -245,7 +245,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     mobileNumber = data.optString("mobileNumber"),
                     coordinatorId = data.optString("coordinatorId")
                 )
-                // Prevent duplicates on network reconnects
                 if (_pendingRequests.value.none { it.requestId == request.requestId }) {
                     _pendingRequests.value = _pendingRequests.value + request
                 }

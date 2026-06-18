@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "265210770390-nnjuvd6cvnbnr8f82tpnho5tktn75vhl.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aistudio.resultmaker.bkyvws",
+            "certificate_hash": "7e10afc1f48dabb8a7730904731335d1224b4bfb"
+          }
+        },
+        {
           "client_id": "265210770390-p994rsmnojaja50uf6g4jfu8q0mo2jk8.apps.googleusercontent.com",
           "client_type": 3
         }
