@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -92,6 +93,60 @@ app.get('/pending-requests/:coordinatorId', async (req, res) => {
         res.json(serializedRequests);
     } catch (err) {
         console.error('Error fetching pending requests:', err);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+
+/**
+ * REST Endpoint: Check status of a teacher's join request / approval status.
+ * Used for recovery when the app was closed during approval.
+ */
+app.get('/request-status/:teacherGoogleId', async (req, res) => {
+    try {
+        const { teacherGoogleId } = req.params;
+        
+        // 1. Check if there's a user record (already approved)
+        const user = await User.findOne({ googleId: teacherGoogleId, role: "Teacher" });
+        if (user) {
+            return res.json({ 
+                status: 'approved', 
+                coordinatorId: user.coordinatorId 
+            });
+        }
+        
+        // 2. Check if the request is still pending
+        const pendingRequest = await JoinRequest.findOne({ teacherGoogleId, status: 'pending' });
+        if (pendingRequest) {
+            return res.json({ 
+                status: 'pending' 
+            });
+        }
+        
+        // 3. Neither exists (denied or deleted)
+        res.json({ 
+            status: 'none' 
+        });
+    } catch (err) {
+        console.error('Error checking request status:', err);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+/**
+ * REST Endpoint: Fetch coordinator's name/info.
+ */
+app.get('/coordinator-info/:coordinatorId', async (req, res) => {
+    try {
+        const { coordinatorId } = req.params;
+        const coordinator = await User.findOne({ coordinatorId, role: "Admin" });
+        if (coordinator) {
+            res.json({ name: coordinator.name });
+        } else {
+            res.status(404).json({ error: 'Coordinator not found' });
+        }
+    } catch (err) {
+        console.error('Error fetching coordinator info:', err);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });

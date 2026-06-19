@@ -221,10 +221,17 @@ fun MainAppHost(viewModel: AppViewModel) {
 
             // Performance Analytics Charts
             composable("analysis") {
-                ResultAnalysisScreen(
-                    viewModel = viewModel,
-                    onBack = { navController.popBackStack() }
-                )
+                val role by viewModel.currentUserRole.collectAsState()
+                if (role == "Admin") {
+                    ResultAnalysisScreen(
+                        viewModel = viewModel,
+                        onBack = { navController.popBackStack() }
+                    )
+                } else {
+                    LaunchedEffect(Unit) {
+                        navController.popBackStack()
+                    }
+                }
             }
         }
     }

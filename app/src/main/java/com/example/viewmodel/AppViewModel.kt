@@ -106,11 +106,90 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _isWaitingForApproval = MutableStateFlow(false)
     val isWaitingForApproval: StateFlow<Boolean> = _isWaitingForApproval.asStateFlow()
 
+    private val _coordinatorName = MutableStateFlow<String?>(null)
+    val coordinatorName: StateFlow<String?> = _coordinatorName.asStateFlow()
+
+    private fun getCurrentUserGoogleId(): String? {
+        val auth = _authState.value
+        return if (auth is AuthState.Authenticated) {
+            auth.googleId
+        } else {
+            com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+        }
+    }
+
+    private fun getScopedKey(baseKey: String): String {
+        val googleId = getCurrentUserGoogleId()
+        return if (googleId != null) "${baseKey}_$googleId" else baseKey
+    }
+
+    fun fetchCoordinatorName(coordId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val url = "$BACKEND_URL/coordinator-info/$coordId"
+                val response = URL(url).readText()
+                val json = JSONObject(response)
+                val name = json.optString("name")
+                _coordinatorName.value = name
+            } catch (e: Exception) {
+                println("Error fetching coordinator name: ${e.message}")
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun checkRequestStatusFromServer(googleId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val url = "$BACKEND_URL/request-status/$googleId"
+                val response = URL(url).readText()
+                val json = JSONObject(response)
+                val status = json.optString("status")
+                
+                val prefs = getApplication<Application>()
+                    .getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+                val roleKey = "user_role_$googleId"
+                val coordKey = "coordinator_id_$googleId"
+                val waitingKey = "is_waiting_for_approval_$googleId"
+                
+                if (status == "approved") {
+                    val coordId = json.optString("coordinatorId")
+                    _isWaitingForApproval.value = false
+                    _currentUserRole.value = "Teacher"
+                    _coordinatorId.value = coordId
+                    
+                    prefs.edit()
+                        .putString(roleKey, "Teacher")
+                        .putString(coordKey, coordId)
+                        .putBoolean(waitingKey, false)
+                        .apply()
+                        
+                    fetchCoordinatorName(coordId)
+                    syncUserWithBackend()
+                } else if (status == "none") {
+                    _isWaitingForApproval.value = false
+                    _currentUserRole.value = null
+                    _coordinatorId.value = null
+                    
+                    prefs.edit()
+                        .remove(roleKey)
+                        .remove(coordKey)
+                        .putBoolean(waitingKey, false)
+                        .apply()
+                }
+            } catch (e: Exception) {
+                println("Error checking request status: ${e.message}")
+                e.printStackTrace()
+            }
+        }
+    }
+
     fun updateRole(role: String?) {
         _currentUserRole.value = role
+        val key = getScopedKey("user_role")
         getApplication<Application>()
             .getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
-            .edit().putString("user_role", role).apply()
+            .edit().putString(key, role).apply()
         syncUserWithBackend()
     }
 
@@ -120,10 +199,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             socket?.emit("join_room", it)
             println("Socket.io: Emitted join_room for $it")
             
-            // BUG FIX: Persist coordinatorId to SharedPreferences
+            val key = getScopedKey("coordinator_id")
             getApplication<Application>()
                 .getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
-                .edit().putString("coordinator_id", it).apply()
+                .edit().putString(key, it).apply()
             
             fetchPendingRequestsFromServer(it)
             fetchApprovedTeachersFromServer(it)
@@ -133,9 +212,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setWaitingForApproval(waiting: Boolean) {
         _isWaitingForApproval.value = waiting
+        val key = getScopedKey("is_waiting_for_approval")
         getApplication<Application>()
             .getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
-            .edit().putBoolean("is_waiting_for_approval", waiting).apply()
+            .edit().putBoolean(key, waiting).apply()
     }
 
     fun syncUserWithBackend() {
@@ -293,15 +373,30 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        // BUG FIX: Restore coordinatorId, role, and waiting status from SharedPreferences
-        val savedRole = sharedPrefs.getString("user_role", null)
-        val savedCoordId = sharedPrefs.getString("coordinator_id", null)
-        val savedWaiting = sharedPrefs.getBoolean("is_waiting_for_approval", false)
+        // Restore coordinatorId, role, and waiting status from SharedPreferences
+        val googleId = currentUser?.uid
+        val roleKey = if (googleId != null) "user_role_$googleId" else "user_role"
+        val coordKey = if (googleId != null) "coordinator_id_$googleId" else "coordinator_id"
+        val waitingKey = if (googleId != null) "is_waiting_for_approval_$googleId" else "is_waiting_for_approval"
+
+        val savedRole = sharedPrefs.getString(roleKey, null)
+        val savedCoordId = sharedPrefs.getString(coordKey, null)
+        val savedWaiting = sharedPrefs.getBoolean(waitingKey, false)
         
         _isWaitingForApproval.value = savedWaiting
-        if (savedCoordId != null) {
+        if (savedCoordId != null && savedRole != null) {
             _coordinatorId.value = savedCoordId
-            _currentUserRole.value = savedRole ?: "Admin"
+            _currentUserRole.value = savedRole
+            if (savedRole == "Teacher") {
+                fetchCoordinatorName(savedCoordId)
+            }
+        } else {
+            _coordinatorId.value = null
+            _currentUserRole.value = null
+        }
+
+        if (_isWaitingForApproval.value && _coordinatorId.value == null && googleId != null) {
+            checkRequestStatusFromServer(googleId)
         }
 
         viewModelScope.launch(Dispatchers.IO) {
@@ -343,6 +438,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 val prefs = getApplication<Application>()
                     .getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
 
+                val currentGoogleId = getCurrentUserGoogleId()
+                val rKey = if (currentGoogleId != null) "user_role_$currentGoogleId" else "user_role"
+                val cKey = if (currentGoogleId != null) "coordinator_id_$currentGoogleId" else "coordinator_id"
+                val wKey = if (currentGoogleId != null) "is_waiting_for_approval_$currentGoogleId" else "is_waiting_for_approval"
+
                 if (status == "approved") {
                     val coordId = data.optString("coordinatorId")
                     _isWaitingForApproval.value = false
@@ -350,11 +450,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     _coordinatorId.value = coordId
 
                     prefs.edit()
-                        .putString("user_role", "Teacher")
-                        .putString("coordinator_id", coordId)
-                        .putBoolean("is_waiting_for_approval", false)
+                        .putString(rKey, "Teacher")
+                        .putString(cKey, coordId)
+                        .putBoolean(wKey, false)
                         .apply()
 
+                    fetchCoordinatorName(coordId)
                     // Sync state immediately upon approval
                     syncUserWithBackend()
                 } else if (status == "denied") {
@@ -363,9 +464,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     _coordinatorId.value = null
 
                     prefs.edit()
-                        .remove("user_role")
-                        .remove("coordinator_id")
-                        .putBoolean("is_waiting_for_approval", false)
+                        .remove(rKey)
+                        .remove(cKey)
+                        .putBoolean(wKey, false)
                         .apply()
                 }
             }
@@ -424,9 +525,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     fetchedTeachers.add(com.example.data.TeacherUser(
                         googleId = data.optString("googleId"),
                         name = data.optString("name"),
-                        mobileNumber = data.optString("mobileNumber", null),
-                        role = data.optString("role", null),
-                        coordinatorId = data.optString("coordinatorId", null)
+                        mobileNumber = if (data.isNull("mobileNumber")) null else data.optString("mobileNumber"),
+                        role = if (data.isNull("role")) null else data.optString("role"),
+                        coordinatorId = if (data.isNull("coordinatorId")) null else data.optString("coordinatorId")
                     ))
                 }
                 
@@ -501,21 +602,32 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun logout(onComplete: () -> Unit) {
+        val googleId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
         com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
         _authState.value = AuthState.Unauthenticated
         
         // BUG FIX: Clear coordinatorId, role, and waiting status from SharedPreferences on logout
-        getApplication<Application>()
+        val prefs = getApplication<Application>()
             .getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
-            .edit()
-            .remove("coordinator_id")
-            .remove("user_role")
-            .remove("is_waiting_for_approval")
-            .apply()
+            
+        val editor = prefs.edit()
+        
+        // Clean up legacy unscoped keys
+        editor.remove("coordinator_id")
+              .remove("user_role")
+              .remove("is_waiting_for_approval")
+              
+        if (googleId != null) {
+            editor.remove("user_role_$googleId")
+                  .remove("coordinator_id_$googleId")
+                  .remove("is_waiting_for_approval_$googleId")
+        }
+        editor.apply()
             
         _coordinatorId.value = null
         _currentUserRole.value = null
         _isWaitingForApproval.value = false
+        _coordinatorName.value = null
         onComplete()
     }
 

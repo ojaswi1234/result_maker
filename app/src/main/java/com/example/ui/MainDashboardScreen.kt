@@ -174,6 +174,10 @@ fun MainDashboardScreen(
                                         Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.secondary)
                                         Text("You (Teacher)", fontSize = 12.sp)
                                     }
+                                    val coordinatorName by viewModel.coordinatorName.collectAsState()
+                                    coordinatorName?.let { name ->
+                                        Text("Coordinator: $name", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                                    }
                                 } else if (currentUserRole == "Admin") {
                                     Text("Approved Teachers", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
                                     if (approvedTeachers.isEmpty()) {
@@ -594,15 +598,17 @@ fun MainDashboardScreen(
                     )
                 }
 
-                item {
-                    DashboardModuleCard(
-                        title = stringResource(R.string.module_analysis),
-                        subtitle = stringResource(R.string.module_analysis_desc),
-                        icon = Icons.Default.Assessment,
-                        colorAccent = Color(0xFFF4B400), // Google Yellow style
-                        onClick = onNavigateToAnalysis,
-                        testTag = "dashboard_analysis_button"
-                    )
+                if (currentUserRole == "Admin") {
+                    item {
+                        DashboardModuleCard(
+                            title = stringResource(R.string.module_analysis),
+                            subtitle = stringResource(R.string.module_analysis_desc),
+                            icon = Icons.Default.Assessment,
+                            colorAccent = Color(0xFFF4B400), // Google Yellow style
+                            onClick = onNavigateToAnalysis,
+                            testTag = "dashboard_analysis_button"
+                        )
+                    }
                 }
 
                 item {
