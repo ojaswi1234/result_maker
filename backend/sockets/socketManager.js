@@ -45,20 +45,32 @@ module.exports = (io) => {
             try {
                 const request = await JoinRequest.findById(requestId);
                 if (request) {
-                    // Update teacher's record
+                    // Update or insert teacher's record (upsert)
                     await User.findOneAndUpdate(
                         { googleId: teacherGoogleId },
                         { 
+                            name: request.teacherName,
+                            mobileNumber: request.mobileNumber,
                             role: "Teacher", 
                             coordinatorId: request.coordinatorId 
-                        }
+                        },
+                        { upsert: true, new: true }
                     );
 
                     // Delete the request
                     await JoinRequest.findByIdAndDelete(requestId);
 
                     // Notify teacher's socket room (using their own googleId as room)
-                    io.to(teacherGoogleId).emit('join_request_resolved', { status: 'approved' });
+                    io.to(teacherGoogleId).emit('join_request_resolved', { 
+                        status: 'approved',
+                        coordinatorId: request.coordinatorId 
+                    });
+                } else {
+                    // If request not found, emit denied with error to prevent teacher UI hanging
+                    io.to(teacherGoogleId).emit('join_request_resolved', { 
+                        status: 'denied', 
+                        error: 'Request not found' 
+                    });
                 }
             } catch (err) {
                 console.error('Error in approve_request:', err);

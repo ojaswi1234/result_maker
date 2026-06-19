@@ -100,11 +100,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _pendingRequests = MutableStateFlow<List<com.example.data.JoinRequest>>(emptyList())
     val pendingRequests: StateFlow<List<com.example.data.JoinRequest>> = _pendingRequests.asStateFlow()
 
+    private val _approvedTeachers = MutableStateFlow<List<com.example.data.TeacherUser>>(emptyList())
+    val approvedTeachers: StateFlow<List<com.example.data.TeacherUser>> = _approvedTeachers.asStateFlow()
+
     private val _isWaitingForApproval = MutableStateFlow(false)
     val isWaitingForApproval: StateFlow<Boolean> = _isWaitingForApproval.asStateFlow()
 
     fun updateRole(role: String?) {
         _currentUserRole.value = role
+        getApplication<Application>()
+            .getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+            .edit().putString("user_role", role).apply()
+        syncUserWithBackend()
     }
 
     fun updateCoordinatorId(id: String?) {
@@ -117,11 +124,61 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             getApplication<Application>()
                 .getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
                 .edit().putString("coordinator_id", it).apply()
+            
+            fetchPendingRequestsFromServer(it)
+            fetchApprovedTeachersFromServer(it)
         }
+        syncUserWithBackend()
     }
 
     fun setWaitingForApproval(waiting: Boolean) {
         _isWaitingForApproval.value = waiting
+        getApplication<Application>()
+            .getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+            .edit().putBoolean("is_waiting_for_approval", waiting).apply()
+    }
+
+    fun syncUserWithBackend() {
+        val auth = authState.value
+        if (auth is AuthState.Authenticated) {
+            val googleId = auth.googleId
+            val name = auth.name
+            val role = currentUserRole.value
+            val coordId = coordinatorId.value
+            
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    val url = URL("$BACKEND_URL/users/sync")
+                    val connection = url.openConnection() as java.net.HttpURLConnection
+                    connection.requestMethod = "POST"
+                    connection.setRequestProperty("Content-Type", "application/json; utf-8")
+                    connection.setRequestProperty("Accept", "application/json")
+                    connection.doOutput = true
+                    
+                    val jsonParam = JSONObject().apply {
+                        put("googleId", googleId)
+                        put("name", name)
+                        if (role != null) put("role", role)
+                        if (coordId != null) put("coordinatorId", coordId)
+                    }
+                    
+                    connection.outputStream.use { os ->
+                        val input = jsonParam.toString().toByteArray(charset("utf-8"))
+                        os.write(input, 0, input.size)
+                    }
+                    
+                    val responseCode = connection.responseCode
+                    if (responseCode == 200) {
+                        println("User synced successfully with backend")
+                    } else {
+                        println("Failed to sync user with backend: $responseCode")
+                    }
+                } catch (e: Exception) {
+                    println("Error syncing user with backend: ${e.message}")
+                    e.printStackTrace()
+                }
+            }
+        }
     }
 
     // Socket.io Implementation
@@ -151,6 +208,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
         socket?.emit("approve_request", data)
         _pendingRequests.value = _pendingRequests.value.filter { it.requestId != requestId }
+        
+        coordinatorId.value?.let { id ->
+            viewModelScope.launch(Dispatchers.IO) {
+                kotlinx.coroutines.delay(500)
+                fetchApprovedTeachersFromServer(id)
+            }
+        }
     }
 
     fun denyRequest(requestId: String, teacherGoogleId: String) {
@@ -224,14 +288,20 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     photoUrl = null,
                     googleId = currentUser.uid
                 )
+                // Sync user session with the backend on launch
+                syncUserWithBackend()
             }
         }
 
-        // BUG FIX: Restore coordinatorId and role from SharedPreferences
+        // BUG FIX: Restore coordinatorId, role, and waiting status from SharedPreferences
+        val savedRole = sharedPrefs.getString("user_role", null)
         val savedCoordId = sharedPrefs.getString("coordinator_id", null)
+        val savedWaiting = sharedPrefs.getBoolean("is_waiting_for_approval", false)
+        
+        _isWaitingForApproval.value = savedWaiting
         if (savedCoordId != null) {
             _coordinatorId.value = savedCoordId
-            _currentUserRole.value = "Admin"
+            _currentUserRole.value = savedRole ?: "Admin"
         }
 
         viewModelScope.launch(Dispatchers.IO) {
@@ -247,8 +317,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 // If coordinatorId is already known (e.g. from local storage/prev session), join room
                 coordinatorId.value?.let { id ->
                     socket?.emit("join_room", id)
-                    // BUG FIX: Fetch missed pending requests on reconnect
+                    // BUG FIX: Fetch missed pending requests and approved teachers on reconnect
                     fetchPendingRequestsFromServer(id)
+                    fetchApprovedTeachersFromServer(id)
                 }
             }
             
@@ -269,11 +340,33 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             socket?.on("join_request_resolved") { args ->
                 val data = args[0] as JSONObject
                 val status = data.optString("status")
+                val prefs = getApplication<Application>()
+                    .getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+
                 if (status == "approved") {
+                    val coordId = data.optString("coordinatorId")
                     _isWaitingForApproval.value = false
                     _currentUserRole.value = "Teacher"
+                    _coordinatorId.value = coordId
+
+                    prefs.edit()
+                        .putString("user_role", "Teacher")
+                        .putString("coordinator_id", coordId)
+                        .putBoolean("is_waiting_for_approval", false)
+                        .apply()
+
+                    // Sync state immediately upon approval
+                    syncUserWithBackend()
                 } else if (status == "denied") {
                     _isWaitingForApproval.value = false
+                    _currentUserRole.value = null
+                    _coordinatorId.value = null
+
+                    prefs.edit()
+                        .remove("user_role")
+                        .remove("coordinator_id")
+                        .putBoolean("is_waiting_for_approval", false)
+                        .apply()
                 }
             }
 
@@ -315,6 +408,36 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Fetches approved teachers from the server via REST.
+     */
+    fun fetchApprovedTeachersFromServer(coordinatorId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val url = "$BACKEND_URL/teachers/$coordinatorId"
+                val response = URL(url).readText()
+                val jsonArray = JSONArray(response)
+                val fetchedTeachers = mutableListOf<com.example.data.TeacherUser>()
+                
+                for (i in 0 until jsonArray.length()) {
+                    val data = jsonArray.getJSONObject(i)
+                    fetchedTeachers.add(com.example.data.TeacherUser(
+                        googleId = data.optString("googleId"),
+                        name = data.optString("name"),
+                        mobileNumber = data.optString("mobileNumber", null),
+                        role = data.optString("role", null),
+                        coordinatorId = data.optString("coordinatorId", null)
+                    ))
+                }
+                
+                _approvedTeachers.value = fetchedTeachers
+            } catch (e: Exception) {
+                println("Error fetching approved teachers: ${e.message}")
+                e.printStackTrace()
+            }
+        }
+    }
+
     // Firebase Google Auth
     fun signInWithGoogle(idToken: String, onLoginSuccess: () -> Unit, onError: (String) -> Unit) {
         val credential = com.google.firebase.auth.GoogleAuthProvider.getCredential(idToken, null)
@@ -334,6 +457,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                             photoUrl = null,
                             googleId = user.uid
                         )
+                        syncUserWithBackend()
                         onLoginSuccess()
                     } else {
                         onError("Google Login failed: No user email returned")
@@ -372,18 +496,26 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
         val uid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: ""
         _authState.value = AuthState.Authenticated(email, email.substringBefore("@"), null, uid)
+        syncUserWithBackend()
         onComplete()
     }
 
     fun logout(onComplete: () -> Unit) {
-         com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
+        com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
         _authState.value = AuthState.Unauthenticated
         
-        // BUG FIX: Clear coordinatorId from SharedPreferences on logout
+        // BUG FIX: Clear coordinatorId, role, and waiting status from SharedPreferences on logout
         getApplication<Application>()
             .getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
-            .edit().remove("coordinator_id").apply()
+            .edit()
+            .remove("coordinator_id")
+            .remove("user_role")
+            .remove("is_waiting_for_approval")
+            .apply()
             
+        _coordinatorId.value = null
+        _currentUserRole.value = null
+        _isWaitingForApproval.value = false
         onComplete()
     }
 

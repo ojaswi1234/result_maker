@@ -4,6 +4,7 @@ const { Server } = require('socket.io');
 const mongoose = require('mongoose');
 const socketManager = require('./sockets/socketManager');
 const JoinRequest = require('./models/JoinRequest');
+const User = require('./models/User');
 
 const app = express();
 const server = http.createServer(app);
@@ -21,6 +22,56 @@ mongoose.connect(MONGO_URI)
     .catch(err => console.error('MongoDB connection error:', err));
 
 app.use(express.json());
+
+/**
+ * REST Endpoint: Sync/Create a user in MongoDB.
+ * Make it idempotent and upsert the record.
+ */
+app.post('/users/sync', async (req, res) => {
+    try {
+        const { googleId, name, mobileNumber, role, coordinatorId } = req.body;
+        if (!googleId) {
+            return res.status(400).json({ error: 'googleId is required' });
+        }
+
+        const updateData = {};
+        if (name !== undefined) updateData.name = name;
+        if (mobileNumber !== undefined) updateData.mobileNumber = mobileNumber;
+        if (role !== undefined) updateData.role = role;
+        if (coordinatorId !== undefined) updateData.coordinatorId = coordinatorId;
+
+        const user = await User.findOneAndUpdate(
+            { googleId },
+            updateData,
+            { upsert: true, new: true }
+        );
+        res.json(user);
+    } catch (err) {
+        console.error('Error syncing user:', err);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+/**
+ * REST Endpoint: Fetch approved teachers for a coordinator.
+ */
+app.get('/teachers/:coordinatorId', async (req, res) => {
+    try {
+        const { coordinatorId } = req.params;
+        const teachers = await User.find({ coordinatorId, role: "Teacher" }).lean();
+        
+        // Serialize _id as string for Android compatibility
+        const serializedTeachers = teachers.map(teacher => ({
+            ...teacher,
+            _id: teacher._id.toString()
+        }));
+        
+        res.json(serializedTeachers);
+    } catch (err) {
+        console.error('Error fetching approved teachers:', err);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
 
 /**
  * REST Endpoint: Fetch pending join requests for a coordinator.

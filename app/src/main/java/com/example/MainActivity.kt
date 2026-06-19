@@ -140,6 +140,11 @@ fun MainAppHost(viewModel: AppViewModel) {
                     onNavigateToAttendance = { navController.navigate("attendance") },
                     onNavigateToExamSettings = { navController.navigate("exam_settings") },
                     onNavigateToReportSettings = { navController.navigate("report_settings") },
+                    onNavigateToRoleSelection = {
+                        navController.navigate("role_selection") {
+                            popUpTo("dashboard") { inclusive = true }
+                        }
+                    },
                     onLogout = {
                         navController.navigate("login") {
                             popUpTo("dashboard") { inclusive = true }

@@ -63,12 +63,23 @@ fun MainDashboardScreen(
     onNavigateToAttendance: () -> Unit,
     onNavigateToExamSettings: () -> Unit,
     onNavigateToReportSettings: () -> Unit,
+    onNavigateToRoleSelection: () -> Unit,
     onLogout: () -> Unit
 ) {
     val schoolSetting by viewModel.schoolSetting.collectAsState()
     val authState by viewModel.authState.collectAsState()
     val activeRole by viewModel.activeRole.collectAsState()
     val pendingRequests by viewModel.pendingRequests.collectAsState()
+    val approvedTeachers by viewModel.approvedTeachers.collectAsState()
+    val currentUserRole by viewModel.currentUserRole.collectAsState()
+    val isWaitingForApproval by viewModel.isWaitingForApproval.collectAsState()
+    
+    LaunchedEffect(currentUserRole, isWaitingForApproval) {
+        if (currentUserRole == null || isWaitingForApproval) {
+            onNavigateToRoleSelection()
+        }
+    }
+
     var showEditDialog by remember { mutableStateOf(false) }
     var showRequestsDialog by remember { mutableStateOf(false) }
 
@@ -165,8 +176,24 @@ fun MainDashboardScreen(
                                     }
                                 } else if (currentUserRole == "Admin") {
                                     Text("Approved Teachers", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
-                                    // Placeholder for actual teacher list
-                                    Text("No teachers joined yet", fontSize = 11.sp, color = MaterialTheme.colorScheme.outlineVariant)
+                                    if (approvedTeachers.isEmpty()) {
+                                        Text("No teachers joined yet", fontSize = 11.sp, color = MaterialTheme.colorScheme.outlineVariant)
+                                    } else {
+                                        approvedTeachers.forEach { teacher ->
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Person,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(14.dp),
+                                                    tint = MaterialTheme.colorScheme.secondary
+                                                )
+                                                Text(teacher.name, fontSize = 12.sp)
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

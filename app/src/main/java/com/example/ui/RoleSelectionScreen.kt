@@ -21,6 +21,12 @@ fun RoleSelectionScreen(
     val currentUserRole by viewModel.currentUserRole.collectAsState()
     val isWaitingForApproval by viewModel.isWaitingForApproval.collectAsState()
     
+    LaunchedEffect(currentUserRole, isWaitingForApproval) {
+        if (currentUserRole != null && !isWaitingForApproval) {
+            onNavigateToDashboard()
+        }
+    }
+    
     var showTeacherForm by remember { mutableStateOf(false) }
     var inputCoordId by remember { mutableStateOf("") }
     var inputMobile by remember { mutableStateOf("") }

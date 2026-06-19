@@ -9,3 +9,11 @@ data class JoinRequest(
     val mobileNumber: String,
     val coordinatorId: String
 )
+
+data class TeacherUser(
+    val googleId: String,
+    val name: String,
+    val mobileNumber: String?,
+    val role: String?,
+    val coordinatorId: String?
+)
