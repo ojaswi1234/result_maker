@@ -154,4 +154,21 @@
     <string name="subject_games_health">Games/Health</string>
     <string name="attendance_under_construction">Module Under Construction</string>
     <string name="attendance_construction_desc">The Attendance and Discipline management interface will be available in the next update.</string>
+    
+    <!-- Custom Notifications Feature Strings -->
+    <string name="notification_bell_desc">Notifications</string>
+    <string name="notifications_title">Notifications</string>
+    <string name="no_notifications_yet">No notifications yet.</string>
+    <string name="notification_sender_format">From: %1$s</string>
+    <string name="send_notification_title">Send Notification</string>
+    <string name="message_body_label">Message</string>
+    <string name="message_placeholder">Enter notification message...</string>
+    <string name="attach_file_btn">Attach File</string>
+    <string name="remove_attachment">Remove Attachment</string>
+    <string name="send_btn">Send</string>
+    <string name="notification_sent_success">Notification sent successfully!</string>
+    <string name="notification_send_failed">Failed to send notification</string>
+    <string name="notification_message_empty_error">Message cannot be empty</string>
+    <string name="attached_file_label">Attached: %1$s</string>
+    <string name="view_attachment_btn">View Attachment</string>
 </resources>

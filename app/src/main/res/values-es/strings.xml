@@ -153,4 +153,21 @@
     <string name="subject_games_health">Juegos/Salud</string>
     <string name="attendance_under_construction">Módulo en Construcción</string>
     <string name="attendance_construction_desc">La interfaz de gestión de asistencia y disciplina estará disponible en la próxima actualización.</string>
+    
+    <!-- Custom Notifications Feature Strings -->
+    <string name="notification_bell_desc">Notificaciones</string>
+    <string name="notifications_title">Notificaciones</string>
+    <string name="no_notifications_yet">No hay notificaciones aún.</string>
+    <string name="notification_sender_format">De: %1$s</string>
+    <string name="send_notification_title">Enviar notificación</string>
+    <string name="message_body_label">Mensaje</string>
+    <string name="message_placeholder">Ingrese el mensaje de la notificación...</string>
+    <string name="attach_file_btn">Adjuntar archivo</string>
+    <string name="remove_attachment">Eliminar archivo adjunto</string>
+    <string name="send_btn">Enviar</string>
+    <string name="notification_sent_success">¡Notificación enviada con éxito!</string>
+    <string name="notification_send_failed">Error al enviar la notificación</string>
+    <string name="notification_message_empty_error">El mensaje no puede estar vacío</string>
+    <string name="attached_file_label">Adjunto: %1$s</string>
+    <string name="view_attachment_btn">Ver archivo adjunto</string>
 </resources>

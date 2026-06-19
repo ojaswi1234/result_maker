@@ -8,12 +8,15 @@ import com.example.data.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
+import android.net.Uri
 import io.socket.client.IO
 import io.socket.client.Socket
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URL
 import java.util.UUID
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
 
 sealed interface AuthState {
     object Unauthenticated : AuthState
@@ -102,6 +105,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _approvedTeachers = MutableStateFlow<List<com.example.data.TeacherUser>>(emptyList())
     val approvedTeachers: StateFlow<List<com.example.data.TeacherUser>> = _approvedTeachers.asStateFlow()
+
+    private val _notifications = MutableStateFlow<List<NotificationItem>>(emptyList())
+    val notifications: StateFlow<List<NotificationItem>> = _notifications.asStateFlow()
 
     private val _isWaitingForApproval = MutableStateFlow(false)
     val isWaitingForApproval: StateFlow<Boolean> = _isWaitingForApproval.asStateFlow()
@@ -206,6 +212,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             
             fetchPendingRequestsFromServer(it)
             fetchApprovedTeachersFromServer(it)
+            fetchNotificationsFromServer(it)
         }
         syncUserWithBackend()
     }
@@ -390,6 +397,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             if (savedRole == "Teacher") {
                 fetchCoordinatorName(savedCoordId)
             }
+            fetchNotificationsFromServer(savedCoordId)
         } else {
             _coordinatorId.value = null
             _currentUserRole.value = null
@@ -415,6 +423,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     // BUG FIX: Fetch missed pending requests and approved teachers on reconnect
                     fetchPendingRequestsFromServer(id)
                     fetchApprovedTeachersFromServer(id)
+                    fetchNotificationsFromServer(id)
                 }
             }
             
@@ -458,6 +467,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     fetchCoordinatorName(coordId)
                     // Sync state immediately upon approval
                     syncUserWithBackend()
+                    fetchNotificationsFromServer(coordId)
                 } else if (status == "denied") {
                     _isWaitingForApproval.value = false
                     _currentUserRole.value = null
@@ -468,6 +478,23 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         .remove(cKey)
                         .putBoolean(wKey, false)
                         .apply()
+                }
+            }
+
+            socket?.on("new_notification") { args ->
+                val data = args[0] as JSONObject
+                val item = NotificationItem(
+                    id = data.optString("_id"),
+                    coordinatorId = data.optString("coordinatorId"),
+                    senderName = data.optString("senderName"),
+                    message = data.optString("message"),
+                    attachmentUrl = if (data.isNull("attachmentUrl")) null else data.optString("attachmentUrl"),
+                    attachmentName = if (data.isNull("attachmentName")) null else data.optString("attachmentName"),
+                    attachmentMimeType = if (data.isNull("attachmentMimeType")) null else data.optString("attachmentMimeType"),
+                    createdAt = data.optString("createdAt")
+                )
+                if (_notifications.value.none { it.id == item.id }) {
+                    _notifications.value = listOf(item) + _notifications.value
                 }
             }
 
@@ -740,9 +767,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Active mock role simulator: "Admin", "Teacher", "Principal/Coordinator"
-    private val _activeRole = MutableStateFlow("Admin")
-    val activeRole: StateFlow<String> = _activeRole.asStateFlow()
+
 
     fun updateTermWeights(t1: Int, t2: Int) {
         _term1Weight.value = t1
@@ -754,8 +779,93 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             .apply()
     }
 
-    fun updateActiveRole(role: String) {
-        _activeRole.value = role
+    fun fetchNotificationsFromServer(coordId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val url = "$BACKEND_URL/notifications/$coordId"
+                val response = URL(url).readText()
+                val jsonArray = JSONArray(response)
+                val fetched = mutableListOf<NotificationItem>()
+                for (i in 0 until jsonArray.length()) {
+                    val obj = jsonArray.getJSONObject(i)
+                    fetched.add(
+                        NotificationItem(
+                            id = obj.optString("_id"),
+                            coordinatorId = obj.optString("coordinatorId"),
+                            senderName = obj.optString("senderName"),
+                            message = obj.optString("message"),
+                            attachmentUrl = if (obj.isNull("attachmentUrl")) null else obj.optString("attachmentUrl"),
+                            attachmentName = if (obj.isNull("attachmentName")) null else obj.optString("attachmentName"),
+                            attachmentMimeType = if (obj.isNull("attachmentMimeType")) null else obj.optString("attachmentMimeType"),
+                            createdAt = obj.optString("createdAt")
+                        )
+                    )
+                }
+                _notifications.value = fetched
+            } catch (e: Exception) {
+                println("Error fetching notifications: ${e.message}")
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun sendNotification(
+        message: String,
+        fileUri: Uri?,
+        fileName: String?,
+        mimeType: String?,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ) {
+        val coordId = coordinatorId.value ?: return onFailure("No coordinator ID found")
+        val sender = authState.value.let { if (it is AuthState.Authenticated) it.name else "Coordinator" }
+        
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val client = okhttp3.OkHttpClient()
+                val builder = okhttp3.MultipartBody.Builder()
+                    .setType(okhttp3.MultipartBody.FORM)
+                    .addFormDataPart("coordinatorId", coordId)
+                    .addFormDataPart("senderName", sender)
+                    .addFormDataPart("message", message)
+                
+                if (fileUri != null && fileName != null && mimeType != null) {
+                    val contentResolver = getApplication<Application>().contentResolver
+                    val inputStream = contentResolver.openInputStream(fileUri)
+                    if (inputStream != null) {
+                        val bytes = inputStream.readBytes()
+                        inputStream.close()
+                        val mediaType = mimeType.toMediaTypeOrNull()
+                        val fileBody = bytes.toRequestBody(mediaType)
+                        builder.addFormDataPart("file", fileName, fileBody)
+                    }
+                }
+                
+                val requestBody = builder.build()
+                val request = okhttp3.Request.Builder()
+                    .url("$BACKEND_URL/notifications/send")
+                    .post(requestBody)
+                    .build()
+                
+                client.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) {
+                        viewModelScope.launch(Dispatchers.Main) {
+                            onSuccess()
+                        }
+                    } else {
+                        val errorMsg = response.body?.string() ?: "Unknown error"
+                        viewModelScope.launch(Dispatchers.Main) {
+                            onFailure(errorMsg)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                viewModelScope.launch(Dispatchers.Main) {
+                    onFailure(e.message ?: "Failed to send request")
+                }
+            }
+        }
     }
 
     // Shared Selection State for Grading

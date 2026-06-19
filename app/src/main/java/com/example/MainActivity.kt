@@ -140,6 +140,8 @@ fun MainAppHost(viewModel: AppViewModel) {
                     onNavigateToAttendance = { navController.navigate("attendance") },
                     onNavigateToExamSettings = { navController.navigate("exam_settings") },
                     onNavigateToReportSettings = { navController.navigate("report_settings") },
+                    onNavigateToSendNotification = { navController.navigate("send_notification") },
+                    onNavigateToViewNotifications = { navController.navigate("view_notifications") },
                     onNavigateToRoleSelection = {
                         navController.navigate("role_selection") {
                             popUpTo("dashboard") { inclusive = true }
@@ -153,12 +155,42 @@ fun MainAppHost(viewModel: AppViewModel) {
                 )
             }
 
-            // Report Configuration (Weightage)
-            composable("report_settings") {
-                ReportSettingsScreen(
+            // Send notification for coordinator
+            composable("send_notification") {
+                val role by viewModel.currentUserRole.collectAsState()
+                if (role == "Admin") {
+                    SendNotificationScreen(
+                        viewModel = viewModel,
+                        onBack = { navController.popBackStack() }
+                    )
+                } else {
+                    LaunchedEffect(Unit) {
+                        navController.popBackStack()
+                    }
+                }
+            }
+
+            // View notifications for teachers/all
+            composable("view_notifications") {
+                ViewNotificationsScreen(
                     viewModel = viewModel,
                     onBack = { navController.popBackStack() }
                 )
+            }
+
+            // Report Configuration (Weightage)
+            composable("report_settings") {
+                val role by viewModel.currentUserRole.collectAsState()
+                if (role == "Admin") {
+                    ReportSettingsScreen(
+                        viewModel = viewModel,
+                        onBack = { navController.popBackStack() }
+                    )
+                } else {
+                    LaunchedEffect(Unit) {
+                        navController.popBackStack()
+                    }
+                }
             }
 
             // Attendance and Conduct module
@@ -180,10 +212,17 @@ fun MainAppHost(viewModel: AppViewModel) {
 
             // School administrator configurations
             composable("exam_settings") {
-                ExamSettingsScreen(
-                    viewModel = viewModel,
-                    onBack = { navController.popBackStack() }
-                )
+                val role by viewModel.currentUserRole.collectAsState()
+                if (role == "Admin") {
+                    ExamSettingsScreen(
+                        viewModel = viewModel,
+                        onBack = { navController.popBackStack() }
+                    )
+                } else {
+                    LaunchedEffect(Unit) {
+                        navController.popBackStack()
+                    }
+                }
             }
 
             // Classes list selection

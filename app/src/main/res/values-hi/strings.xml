@@ -153,4 +153,21 @@
     <string name="subject_games_health">खेल/स्वास्थ्य</string>
     <string name="attendance_under_construction">मॉड्यूल निर्माणाधीन है</string>
     <string name="attendance_construction_desc">उपस्थिति और अनुशासन प्रबंधन इंटरफ़ेस अगले अपडेट में उपलब्ध होगा।</string>
+    
+    <!-- Custom Notifications Feature Strings -->
+    <string name="notification_bell_desc">सूचनाएं</string>
+    <string name="notifications_title">सूचनाएं</string>
+    <string name="no_notifications_yet">अभी तक कोई सूचना नहीं है।</string>
+    <string name="notification_sender_format">प्रेषक: %1$s</string>
+    <string name="send_notification_title">सूचना भेजें</string>
+    <string name="message_body_label">संदेश</string>
+    <string name="message_placeholder">सूचना संदेश दर्ज करें...</string>
+    <string name="attach_file_btn">फ़ाइल संलग्न करें</string>
+    <string name="remove_attachment">संलग्नक हटाएं</string>
+    <string name="send_btn">भेजें</string>
+    <string name="notification_sent_success">सूचना सफलतापूर्वक भेजी गई!</string>
+    <string name="notification_send_failed">सूचना भेजने में विफल</string>
+    <string name="notification_message_empty_error">संदेश खाली नहीं हो सकता</string>
+    <string name="attached_file_label">संलग्न: %1$s</string>
+    <string name="view_attachment_btn">संलग्नक देखें</string>
 </resources>

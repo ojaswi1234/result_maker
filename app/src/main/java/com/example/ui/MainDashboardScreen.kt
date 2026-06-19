@@ -51,6 +51,9 @@ import com.example.data.SchoolSetting
 import com.example.viewmodel.AppViewModel
 import com.example.viewmodel.AuthState
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,12 +66,13 @@ fun MainDashboardScreen(
     onNavigateToAttendance: () -> Unit,
     onNavigateToExamSettings: () -> Unit,
     onNavigateToReportSettings: () -> Unit,
+    onNavigateToSendNotification: () -> Unit,
+    onNavigateToViewNotifications: () -> Unit,
     onNavigateToRoleSelection: () -> Unit,
     onLogout: () -> Unit
 ) {
     val schoolSetting by viewModel.schoolSetting.collectAsState()
     val authState by viewModel.authState.collectAsState()
-    val activeRole by viewModel.activeRole.collectAsState()
     val pendingRequests by viewModel.pendingRequests.collectAsState()
     val approvedTeachers by viewModel.approvedTeachers.collectAsState()
     val currentUserRole by viewModel.currentUserRole.collectAsState()
@@ -77,6 +81,43 @@ fun MainDashboardScreen(
     LaunchedEffect(currentUserRole, isWaitingForApproval) {
         if (currentUserRole == null || isWaitingForApproval) {
             onNavigateToRoleSelection()
+        }
+    }
+
+    val notifications by viewModel.notifications.collectAsState()
+    val context = LocalContext.current
+    val sharedPrefs = remember(context) { context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE) }
+    val googleId = (authState as? AuthState.Authenticated)?.googleId ?: ""
+    val coordId by viewModel.coordinatorId.collectAsState()
+    val lastReadPrefsKey = "last_read_notif_${googleId}_${coordId}"
+    var lastReadTimestamp by remember(lastReadPrefsKey) { 
+        mutableStateOf(sharedPrefs.getLong(lastReadPrefsKey, 0L)) 
+    }
+    
+    DisposableEffect(lastReadPrefsKey) {
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == lastReadPrefsKey) {
+                lastReadTimestamp = sharedPrefs.getLong(lastReadPrefsKey, 0L)
+            }
+        }
+        sharedPrefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose {
+            sharedPrefs.unregisterOnSharedPreferenceChangeListener(listener)
+        }
+    }
+
+    val unreadCount = remember(notifications, lastReadTimestamp) {
+        val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }
+        notifications.count { notif ->
+            val timestamp = try {
+                val cleanDate = notif.createdAt.substringBefore(".")
+                sdf.parse(cleanDate)?.time ?: 0L
+            } catch (e: Exception) {
+                0L
+            }
+            timestamp > lastReadTimestamp
         }
     }
 
@@ -101,7 +142,8 @@ fun MainDashboardScreen(
     val languages = listOf(
         "en" to "English",
         "hi" to "हिन्दी (Hindi)",
-        "es" to "Español"
+        "es" to "Español",
+        "te" to "తెలుగు (Telugu)"
     )
     
     var expanded by remember { mutableStateOf(false) }
@@ -148,7 +190,7 @@ fun MainDashboardScreen(
                         color = MaterialTheme.colorScheme.outline
                     )
                     
-                    val currentUserRole by viewModel.currentUserRole.collectAsState()
+
                     val coordinatorId by viewModel.coordinatorId.collectAsState()
 
                     Card(
@@ -207,32 +249,46 @@ fun MainDashboardScreen(
                 HorizontalDivider()
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // DRAWER ITEMS - ONLY ONE MAIN FUNCTION BUTTON: Exam setting
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.Settings, contentDescription = "") },
-                    label = { Text(stringResource(R.string.exam_setting)) },
-                    selected = false,
-                    onClick = {
-                        scope.launch {
-                            drawerState.close()
-                            onNavigateToExamSettings()
-                        }
-                    },
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("drawer_exam_setting_button")
-                )
+                if (currentUserRole == "Admin") {
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.Default.Settings, contentDescription = "") },
+                        label = { Text(stringResource(R.string.exam_setting)) },
+                        selected = false,
+                        onClick = {
+                            scope.launch {
+                                drawerState.close()
+                                onNavigateToExamSettings()
+                            }
+                        },
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("drawer_exam_setting_button")
+                    )
 
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.Tune, contentDescription = "") },
-                    label = { Text("Report Settings") },
-                    selected = false,
-                    onClick = {
-                        scope.launch {
-                            drawerState.close()
-                            onNavigateToReportSettings()
-                        }
-                    },
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("drawer_report_setting_button")
-                )
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.Default.Tune, contentDescription = "") },
+                        label = { Text("Report Settings") },
+                        selected = false,
+                        onClick = {
+                            scope.launch {
+                                drawerState.close()
+                                onNavigateToReportSettings()
+                            }
+                        },
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("drawer_report_setting_button")
+                    )
+
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.Default.Send, contentDescription = "") },
+                        label = { Text(stringResource(R.string.send_notification_title)) },
+                        selected = false,
+                        onClick = {
+                            scope.launch {
+                                drawerState.close()
+                                onNavigateToSendNotification()
+                            }
+                        },
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("drawer_send_notification_button")
+                    )
+                }
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
                 
@@ -324,39 +380,58 @@ fun MainDashboardScreen(
                     },
                     actions = {
                         // Display role banner directly
-                        Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            color = when (activeRole) {
-                                "Admin" -> MaterialTheme.colorScheme.primaryContainer
-                                "Teacher" -> MaterialTheme.colorScheme.secondaryContainer
-                                else -> MaterialTheme.colorScheme.tertiaryContainer
-                            },
-                            modifier = Modifier.padding(end = 4.dp)
-                        ) {
-                            Text(
-                                text = if (activeRole == "Principal/Coordinator") stringResource(R.string.coordinator) else {
-                                    when(activeRole) {
+                        val displayRole = currentUserRole ?: ""
+                        if (displayRole.isNotEmpty()) {
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = when (displayRole) {
+                                    "Admin" -> MaterialTheme.colorScheme.primaryContainer
+                                    "Teacher" -> MaterialTheme.colorScheme.secondaryContainer
+                                    else -> MaterialTheme.colorScheme.tertiaryContainer
+                                },
+                                modifier = Modifier.padding(end = 4.dp)
+                            ) {
+                                Text(
+                                    text = when(displayRole) {
                                         "Admin" -> stringResource(R.string.role_admin)
                                         "Teacher" -> stringResource(R.string.role_teacher)
-                                        else -> activeRole
-                                    }
-                                },
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                            )
+                                        else -> displayRole
+                                    },
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                )
+                            }
                         }
 
-                        BadgedBox(
-                            badge = {
-                                if (pendingRequests.isNotEmpty()) {
-                                    Badge { Text(pendingRequests.size.toString()) }
+                        if (currentUserRole == "Admin") {
+                            BadgedBox(
+                                badge = {
+                                    if (pendingRequests.isNotEmpty()) {
+                                        Badge { Text(pendingRequests.size.toString()) }
+                                    }
+                                },
+                                modifier = Modifier.padding(end = 8.dp)
+                            ) {
+                                IconButton(onClick = { showRequestsDialog = true }) {
+                                    Icon(imageVector = Icons.Default.Notifications, contentDescription = "Access Requests")
                                 }
-                            },
-                            modifier = Modifier.padding(end = 8.dp)
-                        ) {
-                            IconButton(onClick = { showRequestsDialog = true }) {
-                                Icon(imageVector = Icons.Default.Notifications, contentDescription = "Access Requests")
+                            }
+                        } else if (currentUserRole == "Teacher") {
+                            BadgedBox(
+                                badge = {
+                                    if (unreadCount > 0) {
+                                        Badge { Text(unreadCount.toString()) }
+                                    }
+                                },
+                                modifier = Modifier.padding(end = 8.dp)
+                            ) {
+                                IconButton(onClick = onNavigateToViewNotifications) {
+                                    Icon(
+                                        imageVector = if (unreadCount > 0) Icons.Default.NotificationsActive else Icons.Default.Notifications,
+                                        contentDescription = stringResource(R.string.notification_bell_desc)
+                                    )
+                                }
                             }
                         }
                     },

@@ -6,6 +6,10 @@ const mongoose = require('mongoose');
 const socketManager = require('./sockets/socketManager');
 const JoinRequest = require('./models/JoinRequest');
 const User = require('./models/User');
+const Notification = require('./models/Notification');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 
 const app = express();
 const server = http.createServer(app);
@@ -147,6 +151,118 @@ app.get('/coordinator-info/:coordinatorId', async (req, res) => {
         }
     } catch (err) {
         console.error('Error fetching coordinator info:', err);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+// Create uploads directory if it doesn't exist
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Multer storage configuration
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = path.extname(file.originalname);
+        cb(null, file.fieldname + '-' + uniqueSuffix + ext);
+    }
+});
+
+// File filter to reject dangerous executables/scripts
+const fileFilter = (req, file, cb) => {
+    const forbiddenExtensions = ['.exe', '.bat', '.sh', '.js', '.vbs', '.scr', '.com', '.msi'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    const mime = file.mimetype ? file.mimetype.toLowerCase() : '';
+    
+    if (forbiddenExtensions.includes(ext) || mime.includes('javascript') || mime.includes('x-msdownload') || mime.includes('x-sh')) {
+        cb(new Error('File type not allowed (executable/script rejected)'), false);
+    } else {
+        cb(null, true);
+    }
+};
+
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+    fileFilter: fileFilter
+});
+
+app.use('/uploads', express.static(uploadDir));
+
+/**
+ * REST Endpoint: Send notification with optional file attachment
+ */
+app.post('/notifications/send', upload.single('file'), async (req, res) => {
+    try {
+        const { coordinatorId, senderName, message } = req.body;
+        if (!coordinatorId || !message) {
+            return res.status(400).json({ error: 'coordinatorId and message are required' });
+        }
+        
+        let attachmentUrl = null;
+        let attachmentName = null;
+        let attachmentMimeType = null;
+        
+        if (req.file) {
+            const host = req.get('host');
+            attachmentUrl = `${req.protocol}://${host}/uploads/${req.file.filename}`;
+            attachmentName = req.file.originalname;
+            attachmentMimeType = req.file.mimetype;
+        }
+        
+        const notification = new Notification({
+            coordinatorId,
+            senderName: senderName || 'Coordinator',
+            message,
+            attachmentUrl,
+            attachmentName,
+            attachmentMimeType
+        });
+        
+        await notification.save();
+        
+        const notificationPayload = {
+            _id: notification._id.toString(),
+            coordinatorId: notification.coordinatorId,
+            senderName: notification.senderName,
+            message: notification.message,
+            attachmentUrl: notification.attachmentUrl,
+            attachmentName: notification.attachmentName,
+            attachmentMimeType: notification.attachmentMimeType,
+            createdAt: notification.createdAt.toISOString()
+        };
+        
+        io.to(coordinatorId).emit('new_notification', notificationPayload);
+        
+        res.json(notificationPayload);
+    } catch (err) {
+        console.error('Error sending notification:', err);
+        res.status(500).json({ error: err.message || 'Internal Server Error' });
+    }
+});
+
+/**
+ * REST Endpoint: Fetch notifications for a coordinator group
+ */
+app.get('/notifications/:coordinatorId', async (req, res) => {
+    try {
+        const { coordinatorId } = req.params;
+        const notifications = await Notification.find({ coordinatorId }).sort({ createdAt: -1 }).lean();
+        
+        const serialized = notifications.map(n => ({
+            ...n,
+            _id: n._id.toString(),
+            createdAt: n.createdAt.toISOString()
+        }));
+        
+        res.json(serialized);
+    } catch (err) {
+        console.error('Error fetching notifications:', err);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });

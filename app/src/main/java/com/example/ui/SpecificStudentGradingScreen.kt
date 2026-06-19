@@ -32,7 +32,7 @@ fun SpecificStudentGradingScreen(
     onBack: () -> Unit
 ) {
     val allStudents by viewModel.allStudents.collectAsState()
-    val activeRole by viewModel.activeRole.collectAsState()
+    val currentUserRole by viewModel.currentUserRole.collectAsState()
     val selectedClassSection by viewModel.selectedClassSection.collectAsState()
     val selectedSubject by viewModel.selectedSubject.collectAsState()
     val activeExamType by viewModel.activeExamType.collectAsState()
@@ -202,7 +202,7 @@ fun SpecificStudentGradingScreen(
                                                 maxMarks = 3.0
                                             )
                                         },
-                                        isReadOnly = activeRole == "Principal/Coordinator",
+                                        isReadOnly = currentUserRole == "Admin",
                                         width = 120.dp
                                     )
                                 } else {
@@ -218,7 +218,7 @@ fun SpecificStudentGradingScreen(
                                                 maxMarks = max
                                             )
                                         },
-                                        isReadOnly = activeRole == "Principal/Coordinator",
+                                        isReadOnly = currentUserRole == "Admin",
                                         width = 120.dp
                                     )
                                 }

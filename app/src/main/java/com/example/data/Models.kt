@@ -17,3 +17,14 @@ data class TeacherUser(
     val role: String?,
     val coordinatorId: String?
 )
+
+data class NotificationItem(
+    val id: String,
+    val coordinatorId: String,
+    val senderName: String,
+    val message: String,
+    val attachmentUrl: String?,
+    val attachmentName: String?,
+    val attachmentMimeType: String?,
+    val createdAt: String
+)

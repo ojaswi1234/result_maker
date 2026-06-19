@@ -46,7 +46,7 @@ fun MarksEntryScreen(
     val allMarks by viewModel.allMarks.collectAsState()
     val allExamConfigs by viewModel.allExamConfigs.collectAsState()
     val allSectionSubjects by viewModel.allSectionSubjects.collectAsState()
-    val activeRole by viewModel.activeRole.collectAsState()
+    val currentUserRole by viewModel.currentUserRole.collectAsState()
 
     // 1. Selector State Values from ViewModel
     val selectedClassSection by viewModel.selectedClassSection.collectAsState()
@@ -134,7 +134,7 @@ fun MarksEntryScreen(
                     // Active role badge
                     Surface(
                         shape = RoundedCornerShape(8.dp),
-                        color = when(activeRole) {
+                        color = when(currentUserRole) {
                             "Admin" -> MaterialTheme.colorScheme.primaryContainer
                             "Teacher" -> MaterialTheme.colorScheme.secondaryContainer
                             else -> MaterialTheme.colorScheme.tertiaryContainer
@@ -148,12 +148,10 @@ fun MarksEntryScreen(
                         ) {
                             Icon(imageVector = Icons.Default.Shield, contentDescription = "", modifier = Modifier.size(12.dp))
                             Text(
-                                text = if (activeRole == "Principal/Coordinator") stringResource(R.string.coordinator) else {
-                                    when(activeRole) {
-                                        "Admin" -> stringResource(R.string.role_admin)
-                                        "Teacher" -> stringResource(R.string.role_teacher)
-                                        else -> activeRole
-                                    }
+                                text = when(currentUserRole) {
+                                    "Admin" -> stringResource(R.string.role_admin)
+                                    "Teacher" -> stringResource(R.string.role_teacher)
+                                    else -> currentUserRole ?: ""
                                 },
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold
@@ -431,7 +429,7 @@ fun MarksEntryScreen(
                                                     maxMarks = 3.0
                                                 )
                                             },
-                                            isReadOnly = activeRole == "Principal/Coordinator",
+                                            isReadOnly = currentUserRole == "Admin",
                                             width = 120.dp
                                         )
                                     } else {
@@ -447,7 +445,7 @@ fun MarksEntryScreen(
                                                     maxMarks = max
                                                 )
                                             },
-                                            isReadOnly = activeRole == "Principal/Coordinator",
+                                            isReadOnly = currentUserRole == "Admin",
                                             width = 120.dp
                                         )
                                     }
@@ -457,7 +455,7 @@ fun MarksEntryScreen(
                     }
 
                     // Global Save Button
-                    if (activeRole != "Principal/Coordinator") {
+                    if (currentUserRole != "Admin") {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
