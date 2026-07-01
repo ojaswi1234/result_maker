@@ -1,4 +1,7 @@
-package com.example.ui
+with open("/workspaces/result_maker/app/src/main/java/com/example/ui/ExamSettingsScreen.kt", "r") as f:
+    pass # We will just generate from scratch to be 100% correct
+
+code = """package com.example.ui
 
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
@@ -925,7 +928,7 @@ fun ExamSettingsScreen(
                                     .clickable { selectedLogic = "Average" }
                             ) {
                                 Text(
-                                    text = "Average of\\nAll PAs",
+                                    text = "Average of\nAll PAs",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     textAlign = TextAlign.Center,
@@ -947,7 +950,7 @@ fun ExamSettingsScreen(
                                     .clickable { selectedLogic = "Best" }
                             ) {
                                 Text(
-                                    text = "Best of\\nAll PAs",
+                                    text = "Best of\nAll PAs",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     textAlign = TextAlign.Center,
@@ -969,7 +972,7 @@ fun ExamSettingsScreen(
                                     .clickable { selectedLogic = "Best of 2" }
                             ) {
                                 Text(
-                                    text = "Average of\\nBest 2 PAs",
+                                    text = "Average of\nBest 2 PAs",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     textAlign = TextAlign.Center,
@@ -1007,7 +1010,6 @@ fun ExamSettingsScreen(
                             fontWeight = FontWeight.Bold
                         )
                     }
-                }
                 }
             } else if (currentStep == 3 && selectedClass != null) {
                 // STEP 3: Main Subjects
@@ -1494,4 +1496,6 @@ fun ExamSettingsScreen(
         }
     }
 }
-
+"""
+with open("/workspaces/result_maker/app/src/main/java/com/example/ui/ExamSettingsScreen.kt", "w") as f:
+    f.write(code)

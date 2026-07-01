@@ -2,6 +2,8 @@ package com.example.data
 
 import android.content.Context
 import androidx.room.*
+import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.room.migration.Migration
 import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "school_settings")
@@ -72,6 +74,10 @@ data class ExamConfig(
     // Step 2: Additional subjects (serialize as: "Subject Name:Max Marks|Subject Name:Max Marks")
     val additionalSubjectsString: String = "", 
     
+    // Step 3: Main subjects
+    val mainSubjectsCount: Int = 5,
+    val mainSubjectsString: String = "",
+    
     // Step 3: PA Settings Term 1
     val t1PaCount: Int = 1, // 1 to 3
     val t1PaMaxMarks1: Double = 20.0,
@@ -90,7 +96,7 @@ data class ExamConfig(
     val printSchoolWebsite: Boolean = true,
     val printAffiliationNumber: Boolean = true,
     val printBoardLogo: Boolean = true,
-    val printHeightWeight: Boolean = true,
+    val printHeightWeight: Boolean = false,
 
     // Image 2 Parameters: Internal assessment components and values
     val hasMultipleAssessment: Boolean = false,
@@ -251,7 +257,7 @@ interface SectionSubjectDao {
 
 @Database(
     entities = [SchoolSetting::class, Student::class, Mark::class, ExamConfig::class, SectionSubject::class, AttendanceRecord::class, DisciplineRecord::class],
-    version = 9, // Incremented version to add Admission and Mobile fields to Student
+    version = 10,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -269,11 +275,19 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
+                val MIGRATION_9_10 = object : Migration(9, 10) {
+                    override fun migrate(database: SupportSQLiteDatabase) {
+                        database.execSQL("ALTER TABLE exam_configs ADD COLUMN mainSubjectsCount INTEGER NOT NULL DEFAULT 5")
+                        database.execSQL("ALTER TABLE exam_configs ADD COLUMN mainSubjectsString TEXT NOT NULL DEFAULT ''")
+                    }
+                }
+                
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "school_result_maker_db"
                 )
+                .addMigrations(MIGRATION_9_10)
                 .fallbackToDestructiveMigration()
                 .build()
                 INSTANCE = instance

@@ -83,8 +83,12 @@ fun MarksEntryScreen(
             if (customSubjects.isNotEmpty()) {
                 customSubjects.map { it.subjectName }
             } else {
-                val baseSubjects = viewModel.availableSubjects.toMutableList()
                 val config = allExamConfigs.find { it.className == className }
+                val baseSubjects = if (config != null && config.mainSubjectsString.isNotEmpty()) {
+                    config.mainSubjectsString.split("|").filter { it.isNotEmpty() }.toMutableList()
+                } else {
+                    viewModel.availableSubjects.toMutableList()
+                }
                 if (config != null && config.additionalSubjectsString.isNotEmpty()) {
                     config.additionalSubjectsString.split("|").forEach { row ->
                         if (row.contains(":")) {
