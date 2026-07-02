@@ -39,18 +39,42 @@ app.post('/users/sync', async (req, res) => {
             return res.status(400).json({ error: 'googleId is required' });
         }
 
-        const updateData = {};
-        if (name !== undefined) updateData.name = name;
-        if (mobileNumber !== undefined) updateData.mobileNumber = mobileNumber;
-        if (role !== undefined) updateData.role = role;
-        if (coordinatorId !== undefined) updateData.coordinatorId = coordinatorId;
-
-        const user = await User.findOneAndUpdate(
-            { googleId },
-            updateData,
-            { upsert: true, new: true }
-        );
-        res.json(user);
+        let user = await User.findOne({ googleId });
+        
+        if (!user) {
+            const canToggleRole = (role === 'Admin');
+            user = await User.create({
+                googleId,
+                name: name || '',
+                mobileNumber,
+                role,
+                originalRole: role,
+                canToggleRole,
+                coordinatorId
+            });
+            return res.json(user);
+        } else {
+            const updateData = {};
+            if (name !== undefined) updateData.name = name;
+            if (mobileNumber !== undefined) updateData.mobileNumber = mobileNumber;
+            if (coordinatorId !== undefined) updateData.coordinatorId = coordinatorId;
+            
+            if (role !== undefined) {
+                if (user.originalRole === 'Teacher' && role === 'Admin') {
+                    // Do nothing, a registered Teacher cannot switch to Admin
+                } else if (user.canToggleRole || user.role === role) {
+                    // Update if they have privilege, or if they are just sending their current role
+                    updateData.role = role;
+                }
+            }
+            
+            const updatedUser = await User.findOneAndUpdate(
+                { googleId },
+                updateData,
+                { new: true }
+            );
+            return res.json(updatedUser);
+        }
     } catch (err) {
         console.error('Error syncing user:', err);
         res.status(500).json({ error: 'Internal Server Error' });

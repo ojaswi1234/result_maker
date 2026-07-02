@@ -5,6 +5,8 @@ const UserSchema = new mongoose.Schema({
     name: { type: String, required: true },
     mobileNumber: { type: String },
     role: { type: String, enum: ["Admin", "Teacher"], default: null },
+    originalRole: { type: String, enum: ["Admin", "Teacher"], default: null },
+    canToggleRole: { type: Boolean, default: false },
     coordinatorId: { type: String } // Links Teacher to Admin
 });
 

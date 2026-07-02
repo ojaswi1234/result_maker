@@ -1008,6 +1008,7 @@ fun ExamSettingsScreen(
                         )
                     }
                 }
+                    }
                 }
             } else if (currentStep == 3 && selectedClass != null) {
                 // STEP 3: Main Subjects

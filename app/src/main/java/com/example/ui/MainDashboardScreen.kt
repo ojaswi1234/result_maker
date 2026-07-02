@@ -17,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -77,6 +78,7 @@ fun MainDashboardScreen(
     val approvedTeachers by viewModel.approvedTeachers.collectAsState()
     val currentUserRole by viewModel.currentUserRole.collectAsState()
     val isWaitingForApproval by viewModel.isWaitingForApproval.collectAsState()
+    val canToggleRole by viewModel.canToggleRole.collectAsState()
     
     LaunchedEffect(currentUserRole, isWaitingForApproval) {
         if (currentUserRole == null || isWaitingForApproval) {
@@ -244,6 +246,30 @@ fun MainDashboardScreen(
                             }
                         }
                     }
+
+                    if (canToggleRole) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text("Toggle Role", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text("Switch to ${if (currentUserRole == "Admin") "Teacher" else "Coordinator"}", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                            }
+                            Switch(
+                                checked = currentUserRole == "Admin",
+                                onCheckedChange = { viewModel.togglePrivilegedRole() },
+                                modifier = Modifier.scale(0.8f)
+                            )
+                        }
+                    }
+
                 }
                 
                 HorizontalDivider()

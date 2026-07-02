@@ -115,6 +115,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _coordinatorName = MutableStateFlow<String?>(null)
     val coordinatorName: StateFlow<String?> = _coordinatorName.asStateFlow()
 
+    private val _canToggleRole = MutableStateFlow(false)
+    val canToggleRole: StateFlow<Boolean> = _canToggleRole.asStateFlow()
+
+    fun togglePrivilegedRole() {
+        if (_canToggleRole.value) {
+            val current = _currentUserRole.value
+            val newRole = if (current == "Admin") "Teacher" else "Admin"
+            updateRole(newRole)
+        }
+    }
+
     private fun getCurrentUserGoogleId(): String? {
         val auth = _authState.value
         return if (auth is AuthState.Authenticated) {
@@ -257,6 +268,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     val responseCode = connection.responseCode
                     if (responseCode == 200) {
                         println("User synced successfully with backend")
+                        try {
+                            val responseBody = connection.inputStream.bufferedReader().readText()
+                            val resJson = JSONObject(responseBody)
+                            _canToggleRole.value = resJson.optBoolean("canToggleRole", false)
+                        } catch (e: Exception) { e.printStackTrace() }
                     } else {
                         println("Failed to sync user with backend: $responseCode")
                     }
@@ -655,6 +671,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         _currentUserRole.value = null
         _isWaitingForApproval.value = false
         _coordinatorName.value = null
+        _canToggleRole.value = false
         onComplete()
     }
 
