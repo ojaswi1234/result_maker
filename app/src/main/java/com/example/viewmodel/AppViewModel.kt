@@ -389,6 +389,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     name = currentUser.displayName ?: currentUser.email?.substringBefore("@") ?: "User",
                     photoUrl = null,
                     googleId = currentUser.uid
+                )
+            }
+        }
+
         // Restore coordinatorId, role, and waiting status from SharedPreferences
         val googleId = currentUser?.uid
         val roleKey = if (googleId != null) "user_role_$googleId" else "user_role"
