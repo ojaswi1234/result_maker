@@ -181,8 +181,7 @@ fun ResultGeneratorScreen(
         }
     }
 
-    // Dynamic clean list of subjects in section (to keep table rows perfectly uniform!)
-    val sectionSubjects = remember(selectedClassSection, allSectionSubjects, classFilteredStudents, allMarks) {
+    val sectionSubjects = remember(selectedClassSection, allSectionSubjects, classFilteredStudents, allMarks, allExamConfigs) {
         if (selectedClassSection != null) {
             val cls = selectedClassSection!!.first
             val sec = selectedClassSection!!.second
@@ -190,7 +189,22 @@ fun ResultGeneratorScreen(
             if (customSubs.isNotEmpty()) {
                 customSubs.map { it.subjectName }
             } else {
-                val base = mutableListOf("Arts", "Hindi", "English", "Maths", "Science")
+                val config = allExamConfigs.find { it.className == cls }
+                val base = if (config != null && config.mainSubjectsString.isNotEmpty()) {
+                    config.mainSubjectsString.split("|").filter { it.isNotEmpty() }.toMutableList()
+                } else {
+                    mutableListOf("Arts", "Hindi", "English", "Maths", "Science")
+                }
+                if (config != null && config.additionalSubjectsString.isNotEmpty()) {
+                    config.additionalSubjectsString.split("|").forEach { row ->
+                        if (row.contains(":")) {
+                            val name = row.split(":").first()
+                            if (name.isNotEmpty() && !base.contains(name)) {
+                                base.add(name)
+                            }
+                        }
+                    }
+                }
                 val custom = allMarks.filter { m -> classFilteredStudents.any { it.id == m.studentId } }
                     .map { it.subjectName }
                     .distinct()
@@ -1306,6 +1320,7 @@ fun printResultPdf(
 
         for (student in students) {
             val rankValue = ranksMap[student.id] ?: 1
+            val config = allExamConfigs.find { it.className == student.className }
 
             if (reportLayout.contains("Combined")) {
                 // COMBINED TERM 1 + TERM 2 COMPILER
@@ -1322,7 +1337,6 @@ fun printResultPdf(
                     }?.maxMarks ?: 100.0
                     termMaxSum += weightage
 
-                    val config = allExamConfigs.find { it.className == student.className }
                     val comp1 = getTermMarks(student.id, sub, "Term 1", allMarks, config)
                     val comp2 = getTermMarks(student.id, sub, "Term 2", allMarks, config)
                     val subjectCombinedTotal = (comp1.total * t1Factor) + (comp2.total * t2Factor)
@@ -1370,19 +1384,21 @@ fun printResultPdf(
                         <div>
                             <!-- Top Info Details Bar -->
                             <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: bold; margin-bottom: 2px;">
-                                <div>Affiliation No. : ${school.affiliationNumber}</div>
-                                <div style="text-align: center; text-transform: uppercase;">website : www.yourschool.com</div>
+                                <div>${if (config?.printAffiliationNumber != false) "Affiliation No. : ${school.affiliationNumber}" else ""}</div>
+                                <div style="text-align: center; text-transform: uppercase;">${if (config?.printSchoolWebsite != false) "website : www.yourschool.com" else ""}</div>
                             </div>
 
                             <!-- Header -->
                             <table style="width: 100%; border-collapse: collapse; margin-bottom: 6px;">
                                 <tr>
                                     <td style="width: 70px; vertical-align: middle;">
+                                        ${if (config?.printBoardLogo != false) """
                                         <div style="width: 60px; height: 60px; border-radius: 50%; border: 2px solid #00A65A; display: inline-block; position: relative; background: #fff; text-align: center; margin-left: 2px;">
                                             <div style="font-size: 6px; font-weight: bold; margin-top: 10px; color: #00A65A; line-height: 1.1;">CENTRAL BOARD OF</div>
                                             <div style="font-size: 5px; font-weight: bold; color: #3C8DBC;">SECONDARY<br>EDUCATION</div>
                                             <div style="font-size: 6px; font-weight: bold; background: #00A65A; color: #fff; position: absolute; bottom: 3px; width: 100%; left: 0; padding: 1px 0; border-radius: 0 0 30px 30px; border-top: 1px solid #fff;">INDIA</div>
                                         </div>
+                                        """ else ""}
                                     </td>
                                     <td style="text-align: center; vertical-align: middle;">
                                         <h1 style="font-size: 18px; font-weight: bold; margin: 0; text-transform: uppercase; font-family: Arial, sans-serif;">${school.schoolName}</h1>
@@ -1413,6 +1429,12 @@ fun printResultPdf(
                                     <td style="padding: 3px 0; font-weight: bold;">Mother's Name : <span style="font-weight: normal; text-transform: uppercase;">${student.motherName}</span></td>
                                     <td style="padding: 3px 0; font-weight: bold;">Section &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: <span style="font-weight: normal; text-transform: uppercase;">${student.sectionName}</span></td>
                                 </tr>
+                                ${if (config?.printHeightWeight == true) """
+                                <tr>
+                                    <td style="padding: 3px 0; font-weight: bold;">Height : <span style="font-weight: normal;">_____ cm</span></td>
+                                    <td style="padding: 3px 0; font-weight: bold;">Weight : <span style="font-weight: normal;">_____ kg</span></td>
+                                </tr>
+                                """ else ""}
                             </table>
 
                             <!-- Main combined table -->
@@ -1615,7 +1637,6 @@ fun printResultPdf(
                     }?.maxMarks ?: 100.0
                     termMaxSum += weightage
 
-                    val config = allExamConfigs.find { it.className == student.className }
                     val comp = getTermMarks(student.id, sub, activeTermName, allMarks, config)
                     
                     if (isSingleExam) {
@@ -1664,19 +1685,21 @@ fun printResultPdf(
                         <div>
                             <!-- Top Info Details Bar -->
                             <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: bold; margin-bottom: 2px;">
-                                <div>Affiliation No. : ${school.affiliationNumber}</div>
-                                <div style="text-align: center; text-transform: uppercase;">website : www.yourschool.com</div>
+                                <div>${if (config?.printAffiliationNumber != false) "Affiliation No. : ${school.affiliationNumber}" else ""}</div>
+                                <div style="text-align: center; text-transform: uppercase;">${if (config?.printSchoolWebsite != false) "website : www.yourschool.com" else ""}</div>
                             </div>
 
                             <!-- Header -->
                             <table style="width: 100%; border-collapse: collapse; margin-bottom: 6px;">
                                 <tr>
                                     <td style="width: 70px; vertical-align: middle;">
+                                        ${if (config?.printBoardLogo != false) """
                                         <div style="width: 60px; height: 60px; border-radius: 50%; border: 2px solid #00A65A; display: inline-block; position: relative; background: #fff; text-align: center; margin-left: 2px;">
                                             <div style="font-size: 6px; font-weight: bold; margin-top: 10px; color: #00A65A; line-height: 1.1;">CENTRAL BOARD OF</div>
                                             <div style="font-size: 5px; font-weight: bold; color: #3C8DBC;">SECONDARY<br>EDUCATION</div>
                                             <div style="font-size: 6px; font-weight: bold; background: #00A65A; color: #fff; position: absolute; bottom: 3px; width: 100%; left: 0; padding: 1px 0; border-radius: 0 0 30px 30px; border-top: 1px solid #fff;">INDIA</div>
                                         </div>
+                                        """ else ""}
                                     </td>
                                     <td style="text-align: center; vertical-align: middle;">
                                         <h1 style="font-size: 18px; font-weight: bold; margin: 0; text-transform: uppercase; font-family: Arial, sans-serif;">${school.schoolName}</h1>
@@ -1707,6 +1730,12 @@ fun printResultPdf(
                                     <td style="padding: 3px 0; font-weight: bold;">Mother's Name : <span style="font-weight: normal; text-transform: uppercase;">${student.motherName}</span></td>
                                     <td style="padding: 3px 0; font-weight: bold;">Section &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: <span style="font-weight: normal; text-transform: uppercase;">${student.sectionName}</span></td>
                                 </tr>
+                                ${if (config?.printHeightWeight == true) """
+                                <tr>
+                                    <td style="padding: 3px 0; font-weight: bold;">Height : <span style="font-weight: normal;">_____ cm</span></td>
+                                    <td style="padding: 3px 0; font-weight: bold;">Weight : <span style="font-weight: normal;">_____ kg</span></td>
+                                </tr>
+                                """ else ""}
                             </table>
 
                             <!-- Subjects Table -->

@@ -889,14 +889,22 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 val secSub = allSectionSubjects.value.find { it.className == className && it.sectionName == sectionName && it.subjectName == subjectName }
                 secSub?.maxMarks ?: 80.0
             }
-            "Term 1 Internal" -> 20.0
+            "Term 1 Internal", "Term 2 Internal" -> {
+                if (config != null) {
+                    var total = 0.0
+                    if (config.hasMultipleAssessment) total += config.multipleAssessmentMarks
+                    if (config.hasNotebookSubmission) total += config.notebookSubmissionMarks
+                    if (config.hasSubjectEnrichment) total += config.subjectEnrichmentMarks
+                    if (config.hasPaWeightage) total += config.paWeightageMarks
+                    if (total == 0.0) 20.0 else total
+                } else 20.0
+            }
             "PT 3" -> config?.t2PaMaxMarks1 ?: 20.0
             "PT 4" -> config?.t2PaMaxMarks2 ?: 20.0
             "FA 2" -> {
                 val secSub = allSectionSubjects.value.find { it.className == className && it.sectionName == sectionName && it.subjectName == subjectName }
                 secSub?.maxMarks ?: 80.0
             }
-            "Term 2 Internal" -> 20.0
             else -> 100.0
         }
     }
