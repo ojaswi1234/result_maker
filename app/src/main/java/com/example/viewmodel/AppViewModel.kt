@@ -21,7 +21,6 @@ import okhttp3.RequestBody.Companion.toRequestBody
 sealed interface AuthState {
     object Unauthenticated : AuthState
     data class Authenticated(val email: String, val name: String, val photoUrl: String?, val googleId: String) : AuthState
-    data class VerificationPending(val email: String) : AuthState
 }
 
 data class MonthlyAttendanceSummary(
@@ -612,37 +611,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             }
     }
 
-    // Passwordless Email Link Authentication
-    fun sendPasswordlessLink(email: String, context: android.content.Context, onError: (String) -> Unit) {
-        val actionCodeSettings = com.google.firebase.auth.ActionCodeSettings.newBuilder()
-            .setUrl("https://school-result-maker.firebaseapp.com/")
-            .setHandleCodeInApp(true)
-            .setAndroidPackageName(getApplication<Application>().packageName, true, "24")
-            .build()
-            
-        val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
-        auth.sendSignInLinkToEmail(email, actionCodeSettings)
-            .addOnCompleteListener { task ->
-                if (task.isSuccessful) {
-                    val prefs = context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
-                    prefs.edit().putString("pending_email", email).apply()
-                    _authState.value = AuthState.VerificationPending(email)
-                } else {
-                    onError("Failed to send link: ${task.exception?.message}")
-                }
-            }
-    }
 
-    fun markAuthenticated(email: String, onComplete: () -> Unit) {
-        // Save login timestamp
-        getApplication<Application>().getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
-            .edit().putLong("login_timestamp", System.currentTimeMillis()).apply()
-
-        val uid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: ""
-        _authState.value = AuthState.Authenticated(email, email.substringBefore("@"), null, uid)
-        syncUserWithBackend()
-        onComplete()
-    }
 
     fun logout(onComplete: () -> Unit) {
         val googleId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid

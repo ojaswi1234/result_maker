@@ -45,19 +45,8 @@ fun LoginScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var authErrorMessage by remember { mutableStateOf<String?>(null) }
-    var email by remember { mutableStateOf("") }
     
     val authState by viewModel.authState.collectAsState()
-
-    if (authState is AuthState.VerificationPending) {
-        VerificationPendingScreen(
-            email = (authState as AuthState.VerificationPending).email,
-            onVerified = {
-                viewModel.markAuthenticated((authState as AuthState.VerificationPending).email, onLoginSuccess)
-            }
-        )
-        return
-    }
 
     Box(
         modifier = Modifier
@@ -152,59 +141,12 @@ fun LoginScreen(
                     )
 
                     Text(
-                        text = "Enter your email to receive a secure sign-in magic link. No passwords needed.",
-                        fontSize = 12.sp,
+                        text = "Sign in using your Google account to continue.",
+                        fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurface,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(horizontal = 8.dp)
                     )
-
-                    OutlinedTextField(
-                        value = email,
-                        onValueChange = { email = it },
-                        label = { Text("Email") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-
-                    Button(
-                        onClick = {
-                            authErrorMessage = null
-                            if (email.isBlank()) {
-                                authErrorMessage = "Please enter an email address"
-                                return@Button
-                            }
-                            
-                            viewModel.sendPasswordlessLink(email, context) { error ->
-                                authErrorMessage = error
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .wrapContentHeight()
-                            .padding(vertical = 4.dp),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(
-                            text = "Send Magic Login Link",
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 15.sp
-                        )
-                    }
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        HorizontalDivider(modifier = Modifier.weight(1f))
-                        Text(
-                            text = "OR",
-                            modifier = Modifier.padding(horizontal = 8.dp),
-                            color = MaterialTheme.colorScheme.onSurface,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        HorizontalDivider(modifier = Modifier.weight(1f))
-                    }
 
                     // Google Sign-In Button Refinement
                     Button(
@@ -389,46 +331,5 @@ fun GSymbolSvg(modifier: Modifier = Modifier) {
             topLeft = androidx.compose.ui.geometry.Offset(center, center - strokeW / 2),
             size = androidx.compose.ui.geometry.Size(barL, strokeW)
         )
-    }
-}
-
-@Composable
-fun VerificationPendingScreen(email: String, onVerified: () -> Unit) {
-    val lifecycleOwner = LocalLifecycleOwner.current
-
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                val user = FirebaseAuth.getInstance().currentUser
-                user?.reload()?.addOnCompleteListener {
-                    if (user.isEmailVerified) {
-                        onVerified()
-                    }
-                }
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
-
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "Check your inbox",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "We sent a magic login link to $email.\nClick the link in the email to automatically log in.",
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 32.dp)
-            )
-        }
     }
 }
