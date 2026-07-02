@@ -1470,10 +1470,8 @@ fun ExamSettingsScreen(
                                             configsToSave.add(finalConfig.copy(className = extraCls))
                                         }
 
-                                        // viewModel needs a way to save bulk or we just loop
-                                        configsToSave.forEach {
-                                            viewModel.saveExamConfig(it)
-                                        }
+                                        // Save bulk instead of loop
+                                        viewModel.saveExamConfigsBulk(configsToSave)
                                         
                                         Toast.makeText(context, "Configurations saved for ${configsToSave.size} classes", Toast.LENGTH_SHORT).show()
                                         
