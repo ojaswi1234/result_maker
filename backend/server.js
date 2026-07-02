@@ -59,12 +59,27 @@ app.post('/users/sync', async (req, res) => {
             if (mobileNumber !== undefined) updateData.mobileNumber = mobileNumber;
             if (coordinatorId !== undefined) updateData.coordinatorId = coordinatorId;
             
+            // Backward compatibility for old users who existed before the toggle feature
+            let currentOriginalRole = user.originalRole;
+            let currentCanToggleRole = user.canToggleRole;
+            if (!currentOriginalRole) {
+                currentOriginalRole = user.role;
+                currentCanToggleRole = (user.role === 'Admin');
+                updateData.originalRole = currentOriginalRole;
+                updateData.canToggleRole = currentCanToggleRole;
+            }
+            
             if (role !== undefined) {
-                if (user.originalRole === 'Teacher' && role === 'Admin') {
+                if (currentOriginalRole === 'Teacher' && role === 'Admin') {
                     // Do nothing, a registered Teacher cannot switch to Admin
-                } else if (user.canToggleRole || user.role === role) {
+                } else if (currentCanToggleRole || user.role === role || !user.role) {
                     // Update if they have privilege, or if they are just sending their current role
                     updateData.role = role;
+                    
+                    if (!user.role) {
+                        updateData.originalRole = role;
+                        updateData.canToggleRole = (role === 'Admin');
+                    }
                 }
             }
             

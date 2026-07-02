@@ -389,12 +389,6 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     name = currentUser.displayName ?: currentUser.email?.substringBefore("@") ?: "User",
                     photoUrl = null,
                     googleId = currentUser.uid
-                )
-                // Sync user session with the backend on launch
-                syncUserWithBackend()
-            }
-        }
-
         // Restore coordinatorId, role, and waiting status from SharedPreferences
         val googleId = currentUser?.uid
         val roleKey = if (googleId != null) "user_role_$googleId" else "user_role"
@@ -416,6 +410,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         } else {
             _coordinatorId.value = null
             _currentUserRole.value = null
+        }
+
+        if (currentUser != null && _authState.value is AuthState.Authenticated) {
+            // Sync user session with the backend on launch, after restoring local state
+            syncUserWithBackend()
         }
 
         if (_isWaitingForApproval.value && _coordinatorId.value == null && googleId != null) {
