@@ -42,18 +42,29 @@ app.post('/users/sync', async (req, res) => {
         let user = await User.findOne({ googleId });
         
         if (!user) {
-            const canToggleRole = (role === 'Admin');
-            user = await User.create({
-                googleId,
-                name: name || '',
-                mobileNumber,
-                role,
-                originalRole: role,
-                canToggleRole,
-                coordinatorId
-            });
-            return res.json(user);
-        } else {
+            try {
+                const canToggleRole = (role === 'Admin');
+                user = await User.create({
+                    googleId,
+                    name: name || '',
+                    mobileNumber,
+                    role,
+                    originalRole: role,
+                    canToggleRole,
+                    coordinatorId
+                });
+                return res.json(user);
+            } catch (createError) {
+                if (createError.code === 11000) {
+                    // Created by a concurrent request, fetch it and proceed to update
+                    user = await User.findOne({ googleId });
+                } else {
+                    throw createError;
+                }
+            }
+        }
+        
+        if (user) {
             const updateData = {};
             if (name !== undefined) updateData.name = name;
             if (mobileNumber !== undefined) updateData.mobileNumber = mobileNumber;
