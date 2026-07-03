@@ -117,6 +117,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _canToggleRole = MutableStateFlow(false)
     val canToggleRole: StateFlow<Boolean> = _canToggleRole.asStateFlow()
 
+    private val _uiMessages = kotlinx.coroutines.flow.MutableSharedFlow<String>()
+    val uiMessages: kotlinx.coroutines.flow.SharedFlow<String> = kotlinx.coroutines.flow.asSharedFlow(_uiMessages)
+
     fun togglePrivilegedRole() {
         if (_canToggleRole.value) {
             val current = _currentUserRole.value
@@ -270,6 +273,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         try {
                             val responseBody = connection.inputStream.bufferedReader().readText()
                             val resJson = JSONObject(responseBody)
+                            val serverRole = resJson.optString("role", "")
+                            
+                            if (role != null && serverRole.isNotEmpty() && serverRole != role) {
+                                _currentUserRole.value = serverRole
+                                sharedPrefs.edit().putString(if (googleId != null) "user_role_$googleId" else "user_role", serverRole).apply()
+                                _uiMessages.emit("Role change denied. You are registered as $serverRole.")
+                            }
+                            
                             _canToggleRole.value = resJson.optBoolean("canToggleRole", false)
                         } catch (e: Exception) { e.printStackTrace() }
                     } else {

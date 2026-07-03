@@ -55,8 +55,16 @@ fun MainAppHost(viewModel: AppViewModel) {
 
     // Observe configuration changes to trigger recomposition when locale changes
     val configuration = LocalConfiguration.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     val currentLocale = remember(configuration) {
         AppCompatDelegate.getApplicationLocales().toLanguageTags().ifEmpty { "en" }
+    }
+
+    // Observe global UI messages for Toasts
+    LaunchedEffect(Unit) {
+        viewModel.uiMessages.collect { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+        }
     }
 
     // Determine initial route once to avoid NavHost recomposition issues
