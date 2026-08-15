@@ -768,6 +768,50 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun importStudentsFromCSV(context: android.content.Context, uri: android.net.Uri, targetClass: String, targetSection: String) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                    val reader = inputStream.bufferedReader()
+                    val header = reader.readLine() // Skip header
+                    var addedCount = 0
+                    reader.forEachLine { line ->
+                        if (line.isNotBlank()) {
+                            val parts = line.split(",")
+                            // Expecting: Name, RollNumber, FatherName, MotherName, AdmissionNumber, MobileNumber
+                            if (parts.size >= 2) {
+                                val name = parts[0].trim().removeSurrounding("\"")
+                                val roll = parts[1].trim().removeSurrounding("\"")
+                                val father = parts.getOrNull(2)?.trim()?.removeSurrounding("\"") ?: ""
+                                val mother = parts.getOrNull(3)?.trim()?.removeSurrounding("\"") ?: ""
+                                val admission = parts.getOrNull(4)?.trim()?.removeSurrounding("\"") ?: ""
+                                val mobile = parts.getOrNull(5)?.trim()?.removeSurrounding("\"") ?: ""
+
+                                if (name.isNotEmpty() && roll.isNotEmpty()) {
+                                    val student = Student(
+                                        name = name,
+                                        rollNumber = roll,
+                                        className = targetClass,
+                                        sectionName = targetSection,
+                                        fatherName = father,
+                                        motherName = mother,
+                                        admissionNumber = admission,
+                                        mobileNumber = mobile
+                                    )
+                                    repository.insertStudent(student)
+                                    addedCount++
+                                }
+                            }
+                        }
+                    }
+                    _uiMessages.emit("Successfully imported $addedCount students.")
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _uiMessages.emit("Failed to import CSV: ${e.message}")
+            }
+        }
+    }
 
 
     fun updateTermWeights(t1: Int, t2: Int) {
@@ -1120,6 +1164,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
      * Updates marks for a specific student, subject, and exam type.
      */
     fun updateMarksForExam(studentId: Int, subjectName: String, examType: String, newValue: String, maxMarks: Double = 100.0) {
+        if (newValue.isBlank()) {
+            executeDbAction("DELETE_MARK_SINGLE") {
+                repository.deleteMarkForExam(studentId, subjectName, examType)
+            }
+            return
+        }
         val marksValue = newValue.toDoubleOrNull() ?: return
         val termName = when (examType) {
             "PT 1", "PT 2", "Half Yearly", "Term 1 Internal" -> "Term 1"

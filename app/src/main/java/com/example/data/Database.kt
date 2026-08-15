@@ -180,6 +180,9 @@ interface MarkDao {
     @Query("DELETE FROM marks WHERE studentId = :studentId AND subjectName = :subjectName")
     suspend fun deleteMark(studentId: Int, subjectName: String)
 
+    @Query("DELETE FROM marks WHERE studentId = :studentId AND subjectName = :subjectName AND examType = :examType")
+    suspend fun deleteMarkForExam(studentId: Int, subjectName: String, examType: String)
+
     @Query("DELETE FROM marks WHERE studentId = :studentId")
     suspend fun deleteMarksForStudent(studentId: Int)
 }

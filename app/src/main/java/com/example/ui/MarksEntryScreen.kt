@@ -494,11 +494,21 @@ fun SingleMarkInputCell(
     isReadOnly: Boolean,
     width: androidx.compose.ui.unit.Dp
 ) {
-    var textValue by remember(initialValue) {
+    var textValue by remember {
         val str = if (initialValue != null) {
             if (initialValue % 1.0 == 0.0) initialValue.toInt().toString() else initialValue.toString()
         } else ""
         mutableStateOf(str)
+    }
+
+    LaunchedEffect(initialValue) {
+        val currentDouble = textValue.toDoubleOrNull()
+        if (initialValue != currentDouble) {
+            val str = if (initialValue != null) {
+                if (initialValue % 1.0 == 0.0) initialValue.toInt().toString() else initialValue.toString()
+            } else ""
+            textValue = str
+        }
     }
 
     var isError by remember { mutableStateOf(false) }
@@ -530,7 +540,7 @@ fun SingleMarkInputCell(
             modifier = Modifier.fillMaxWidth().wrapContentHeight().padding(vertical = 4.dp),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             textStyle = LocalTextStyle.current.copy(
-                color = if (isError) MaterialTheme.colorScheme.error else Color.White, 
+                color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface, 
                 fontWeight = FontWeight.ExtraBold,
                 textAlign = TextAlign.Center,
                 fontSize = 18.sp
@@ -564,8 +574,8 @@ fun SingleMarkInputCell(
                                 focusedContainerColor = Color.Transparent,
                                 unfocusedContainerColor = Color.Transparent,
                                 disabledContainerColor = Color.Transparent,
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                             ),
                             shape = RoundedCornerShape(8.dp)
                         )

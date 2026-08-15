@@ -99,6 +99,20 @@ fun ClassSectionScreen(
                             contentDescription = stringResource(R.string.go_back)
                         )
                     }
+                actions = {
+                    if (selectedClassSection != null && !showingSubjectsPage) {
+                        val csvLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+                            androidx.activity.result.contract.ActivityResultContracts.GetContent()
+                        ) { uri ->
+                            uri?.let { viewModel.importStudentsFromCSV(context, it, selectedClassSection!!.first, selectedClassSection!!.second) }
+                        }
+                        IconButton(
+                            onClick = { csvLauncher.launch("*/*") },
+                            modifier = Modifier.testTag("import_csv_button")
+                        ) {
+                            Icon(Icons.Default.Upload, contentDescription = "Import CSV")
+                        }
+                    }
                 }
             )
         },

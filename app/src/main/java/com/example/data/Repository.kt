@@ -59,6 +59,10 @@ class SchoolRepository(private val db: AppDatabase) {
         db.markDao.deleteMark(studentId, subjectName)
     }
 
+    suspend fun deleteMarkForExam(studentId: Int, subjectName: String, examType: String) {
+        db.markDao.deleteMarkForExam(studentId, subjectName, examType)
+    }
+
     // Exam Config operations
     val allExamConfigs: Flow<List<ExamConfig>> = db.examConfigDao.getAllExamConfigsFlow()
 
