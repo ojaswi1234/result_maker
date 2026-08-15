@@ -433,7 +433,7 @@ fun MarksEntryScreen(
                                                     maxMarks = 3.0
                                                 )
                                             },
-                                            isReadOnly = currentUserRole == "Admin",
+                                            isReadOnly = false,
                                             width = 120.dp
                                         )
                                     } else {
@@ -449,7 +449,7 @@ fun MarksEntryScreen(
                                                     maxMarks = max
                                                 )
                                             },
-                                            isReadOnly = currentUserRole == "Admin",
+                                            isReadOnly = false,
                                             width = 120.dp
                                         )
                                     }
@@ -459,7 +459,7 @@ fun MarksEntryScreen(
                     }
 
                     // Global Save Button
-                    if (currentUserRole != "Admin") {
+                    if (true) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -501,13 +501,17 @@ fun SingleMarkInputCell(
         mutableStateOf(str)
     }
 
+    var isFocused by remember { mutableStateOf(false) }
+
     LaunchedEffect(initialValue) {
-        val currentDouble = textValue.toDoubleOrNull()
-        if (initialValue != currentDouble) {
-            val str = if (initialValue != null) {
-                if (initialValue % 1.0 == 0.0) initialValue.toInt().toString() else initialValue.toString()
-            } else ""
-            textValue = str
+        if (!isFocused) {
+            val currentDouble = textValue.toDoubleOrNull()
+            if (initialValue != currentDouble) {
+                val str = if (initialValue != null) {
+                    if (initialValue % 1.0 == 0.0) initialValue.toInt().toString() else initialValue.toString()
+                } else ""
+                textValue = str
+            }
         }
     }
 
@@ -526,6 +530,16 @@ fun SingleMarkInputCell(
                         textValue = newValue
                         isError = false
                         onSave("")
+                    } else if (newValue == ".") {
+                        textValue = newValue
+                        isError = false
+                    } else if (newValue.endsWith(".") && newValue.dropLast(1).toDoubleOrNull() != null) {
+                        val potentialDouble = newValue.dropLast(1).toDoubleOrNull()
+                        if (potentialDouble != null && potentialDouble >= 0.0 && potentialDouble <= maxMarks) {
+                            textValue = newValue
+                            isError = false
+                            onSave(newValue)
+                        }
                     } else {
                         val potentialDouble = newValue.toDoubleOrNull()
                         if (potentialDouble != null && potentialDouble >= 0.0 && potentialDouble <= maxMarks) {
@@ -537,7 +551,13 @@ fun SingleMarkInputCell(
                 }
             },
             readOnly = isReadOnly,
-            modifier = Modifier.fillMaxWidth().wrapContentHeight().padding(vertical = 4.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentHeight()
+                .padding(vertical = 4.dp)
+                .androidx.compose.ui.focus.onFocusChanged { focusState ->
+                    isFocused = focusState.isFocused
+                },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             textStyle = LocalTextStyle.current.copy(
                 color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface, 
