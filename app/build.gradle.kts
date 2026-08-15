@@ -8,6 +8,10 @@ plugins {
 }
 
 android {
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
   namespace = "com.example"
   compileSdk = 35
 

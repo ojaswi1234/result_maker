@@ -771,11 +771,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun importStudentsFromCSV(context: android.content.Context, uri: android.net.Uri, targetClass: String, targetSection: String) {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
-                context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                    val reader = inputStream.bufferedReader()
+                val inputStream = context.contentResolver.openInputStream(uri)
+                if (inputStream != null) {
+                    inputStream.use { stream ->
+                        val reader = stream.bufferedReader()
                     val header = reader.readLine() // Skip header
                     var addedCount = 0
-                    reader.forEachLine { line ->
+                    while (true) {
+                        val line = reader.readLine() ?: break
                         if (line.isNotBlank()) {
                             val parts = line.split(",")
                             // Expecting: Name, RollNumber, FatherName, MotherName, AdmissionNumber, MobileNumber
@@ -805,6 +808,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                     _uiMessages.emit("Successfully imported $addedCount students.")
+                    }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()

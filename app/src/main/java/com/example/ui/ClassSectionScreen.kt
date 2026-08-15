@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -66,6 +67,14 @@ fun ClassSectionScreen(
         map.toList().sortedWith(compareBy({ it.first.first }, { it.first.second }))
     }
 
+    val csvLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null && selectedClassSection != null) {
+            viewModel.importStudentsFromCSV(context, uri, selectedClassSection!!.first, selectedClassSection!!.second)
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -99,13 +108,9 @@ fun ClassSectionScreen(
                             contentDescription = stringResource(R.string.go_back)
                         )
                     }
+                },
                 actions = {
                     if (selectedClassSection != null && !showingSubjectsPage) {
-                        val csvLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-                            androidx.activity.result.contract.ActivityResultContracts.GetContent()
-                        ) { uri ->
-                            uri?.let { viewModel.importStudentsFromCSV(context, it, selectedClassSection!!.first, selectedClassSection!!.second) }
-                        }
                         IconButton(
                             onClick = { csvLauncher.launch("*/*") },
                             modifier = Modifier.testTag("import_csv_button")
