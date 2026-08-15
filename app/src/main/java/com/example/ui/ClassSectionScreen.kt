@@ -164,19 +164,21 @@ fun ClassSectionScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         item {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.class_roster_portfolio),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Text(
-                                        text = stringResource(R.string.class_roster_portfolio),
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 16.sp,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-
                                     Button(
                                         onClick = {
                                             showingSubjectsPage = true
@@ -186,7 +188,7 @@ fun ClassSectionScreen(
                                             contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                                         ),
                                         shape = RoundedCornerShape(8.dp),
-                                        modifier = Modifier.testTag("view_modify_subjects_button")
+                                        modifier = Modifier.weight(1f).testTag("view_modify_subjects_button")
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.MenuBook,
@@ -194,28 +196,28 @@ fun ClassSectionScreen(
                                             modifier = Modifier.size(16.dp)
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text(stringResource(R.string.view_modify_subjects), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text(stringResource(R.string.view_modify_subjects), fontSize = 11.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 1)
                                     }
-                                }
 
-                                OutlinedButton(
-                                    onClick = {
-                                        val file = com.example.data.ExcelBackupHelper.generateClassRosterExcel(
-                                            context,
-                                            currentClass,
-                                            currentSection,
-                                            classStudents
-                                        )
-                                        if (file != null) {
-                                            com.example.data.ExcelBackupHelper.downloadFile(context, file)
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxWidth().wrapContentHeight().padding(vertical = 4.dp).testTag("download_excel_roster_button"),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Icon(imageVector = Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(stringResource(R.string.download_excel_roster), fontSize = 12.sp)
+                                    OutlinedButton(
+                                        onClick = {
+                                            val file = com.example.data.ExcelBackupHelper.generateClassRosterExcel(
+                                                context,
+                                                currentClass,
+                                                currentSection,
+                                                classStudents
+                                            )
+                                            if (file != null) {
+                                                com.example.data.ExcelBackupHelper.downloadFile(context, file)
+                                            }
+                                        },
+                                        modifier = Modifier.weight(1f).testTag("download_excel_roster_button"),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Icon(imageVector = Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(stringResource(R.string.download_excel_roster), fontSize = 11.sp, textAlign = TextAlign.Center, maxLines = 1)
+                                    }
                                 }
                             }
                         }

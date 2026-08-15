@@ -377,10 +377,11 @@ fun MarksEntryScreen(
                                     .fillMaxWidth()
                                     .background(MaterialTheme.colorScheme.surfaceColorAtElevation(4.dp))
                                     .padding(horizontal = 16.dp, vertical = 12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("Student Name", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                                Text("Marks (Max: ${getMaxMarksForAssessment(activeExamType)})", fontWeight = FontWeight.Bold, modifier = Modifier.width(120.dp), textAlign = TextAlign.Center)
+                                Text("Student Name", fontWeight = FontWeight.Bold, modifier = Modifier.weight(0.6f))
+                                Text("Marks (Max: ${getMaxMarksForAssessment(activeExamType)})", fontWeight = FontWeight.Bold, modifier = Modifier.weight(0.4f), textAlign = TextAlign.Center)
                             }
                         }
 
@@ -403,7 +404,7 @@ fun MarksEntryScreen(
                                     // Student Col
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.weight(1f)
+                                        modifier = Modifier.weight(0.6f).padding(end = 8.dp)
                                     ) {
                                         Box(
                                             modifier = Modifier.size(28.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
@@ -412,7 +413,7 @@ fun MarksEntryScreen(
                                             Text(student.rollNumber, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                         }
                                         Spacer(Modifier.width(12.dp))
-                                        Text(student.name, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                        Text(student.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 2)
                                     }
                                     
                                     // Input Col
@@ -435,7 +436,7 @@ fun MarksEntryScreen(
                                                 )
                                             },
                                             isReadOnly = false,
-                                            width = 120.dp
+                                            modifier = Modifier.weight(0.4f)
                                         )
                                     } else {
                                         SingleMarkInputCell(
@@ -451,7 +452,7 @@ fun MarksEntryScreen(
                                                 )
                                             },
                                             isReadOnly = false,
-                                            width = 120.dp
+                                            modifier = Modifier.weight(0.4f)
                                         )
                                     }
                                 }
@@ -493,7 +494,7 @@ fun SingleMarkInputCell(
     maxMarks: Double,
     onSave: (String) -> Unit,
     isReadOnly: Boolean,
-    width: androidx.compose.ui.unit.Dp
+    modifier: Modifier = Modifier
 ) {
     var textValue by remember {
         val str = if (initialValue != null) {
@@ -519,7 +520,7 @@ fun SingleMarkInputCell(
     var isError by remember { mutableStateOf(false) }
 
     Box(
-        modifier = Modifier.width(width),
+        modifier = modifier,
         contentAlignment = Alignment.Center
     ) {
         val interactionSource = remember { MutableInteractionSource() }
@@ -613,16 +614,16 @@ fun GradeSelectionCell(
     initialValue: Double?,
     onSave: (String) -> Unit,
     isReadOnly: Boolean,
-    width: androidx.compose.ui.unit.Dp
+    modifier: Modifier = Modifier
 ) {
     val grades = listOf("A", "B", "C")
     val gradeMap = mapOf(3.0 to "A", 2.0 to "B", 1.0 to "C")
     val reverseMap = mapOf("A" to "3", "B" to "2", "C" to "1")
     
-    val currentGrade = gradeMap[initialValue] ?: ""
     var expanded by remember { mutableStateOf(false) }
+    val currentGrade = gradeMap[initialValue] ?: ""
 
-    Box(modifier = Modifier.width(width), contentAlignment = Alignment.Center) {
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
         OutlinedButton(
             onClick = { if (!isReadOnly) expanded = true },
             modifier = Modifier.fillMaxWidth().height(48.dp),

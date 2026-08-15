@@ -1082,7 +1082,7 @@ fun ResultGeneratorScreen(
                                         attendanceInputs[student.id] = Pair(newValue.filter { it.isDigit() }, entry.second)
                                     },
                                     label = { Text("Attended", fontSize = 10.sp) },
-                                    modifier = Modifier.width(90.dp),
+                                    modifier = Modifier.weight(0.5f),
                                     textStyle = MaterialTheme.typography.bodyMedium,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     singleLine = true
@@ -1094,7 +1094,7 @@ fun ResultGeneratorScreen(
                                         attendanceInputs[student.id] = Pair(entry.first, newValue.filter { it.isDigit() })
                                     },
                                     label = { Text("Total", fontSize = 10.sp) },
-                                    modifier = Modifier.width(90.dp),
+                                    modifier = Modifier.weight(0.5f),
                                     textStyle = MaterialTheme.typography.bodyMedium,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     singleLine = true

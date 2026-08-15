@@ -142,10 +142,11 @@ fun SpecificStudentGradingScreen(
                                 .fillMaxWidth()
                                 .background(MaterialTheme.colorScheme.surfaceColorAtElevation(4.dp))
                                 .padding(horizontal = 16.dp, vertical = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Student Name", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                            Text("Marks (Max: ${getMaxMarks()})", fontWeight = FontWeight.Bold, modifier = Modifier.width(120.dp), textAlign = TextAlign.Center)
+                            Text("Student Name", fontWeight = FontWeight.Bold, modifier = Modifier.weight(0.6f))
+                            Text("Marks (Max: ${getMaxMarks()})", fontWeight = FontWeight.Bold, modifier = Modifier.weight(0.4f), textAlign = TextAlign.Center)
                         }
                     }
 
@@ -168,7 +169,7 @@ fun SpecificStudentGradingScreen(
                                 // Student Info
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier.weight(0.6f).padding(end = 8.dp)
                                 ) {
                                     Box(
                                         modifier = Modifier.size(28.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
@@ -178,8 +179,8 @@ fun SpecificStudentGradingScreen(
                                     }
                                     Spacer(Modifier.width(12.dp))
                                     Column {
-                                        Text(student.name, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                                        Text("${student.className} - ${student.sectionName}", fontSize = 11.sp, color = Color.Gray)
+                                        Text(student.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 2)
+                                        Text("${student.className} - ${student.sectionName}", fontSize = 11.sp, color = Color.Gray, maxLines = 1)
                                     }
                                 }
 
@@ -202,8 +203,8 @@ fun SpecificStudentGradingScreen(
                                                 maxMarks = 3.0
                                             )
                                         },
-                                        isReadOnly = currentUserRole == "Admin",
-                                        width = 120.dp
+                                        isReadOnly = false,
+                                        modifier = Modifier.weight(0.4f)
                                     )
                                 } else {
                                     SingleMarkInputCell(
@@ -218,8 +219,8 @@ fun SpecificStudentGradingScreen(
                                                 maxMarks = max
                                             )
                                         },
-                                        isReadOnly = currentUserRole == "Admin",
-                                        width = 120.dp
+                                        isReadOnly = false,
+                                        modifier = Modifier.weight(0.4f)
                                     )
                                 }
                             }
