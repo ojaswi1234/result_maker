@@ -270,6 +270,30 @@ fun MainDashboardScreen(
                         }
                     }
 
+                    val uiScaleFactor by viewModel.uiScaleFactor.collectAsState()
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Text("Display Size / Zoom", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Slider(
+                            value = uiScaleFactor,
+                            onValueChange = { viewModel.updateUiScaleFactor(it) },
+                            valueRange = 0.85f..1.15f,
+                            steps = 1,
+                            modifier = Modifier.fillMaxWidth().height(24.dp)
+                        )
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Small", fontSize = 10.sp, color = MaterialTheme.colorScheme.outline)
+                            Text("Default", fontSize = 10.sp, color = MaterialTheme.colorScheme.outline)
+                            Text("Large", fontSize = 10.sp, color = MaterialTheme.colorScheme.outline)
+                        }
+                    }
+
                 }
                 
                 HorizontalDivider()

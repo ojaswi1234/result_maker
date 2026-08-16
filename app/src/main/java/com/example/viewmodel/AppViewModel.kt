@@ -47,6 +47,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         _monthlyAttendanceSummaries.value = current
     }
 
+    private val prefs = application.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+
+    private val _uiScaleFactor = MutableStateFlow(prefs.getFloat("ui_scale", 1.0f))
+    val uiScaleFactor: StateFlow<Float> = _uiScaleFactor.asStateFlow()
+
+    fun updateUiScaleFactor(factor: Float) {
+        _uiScaleFactor.value = factor
+        prefs.edit().putFloat("ui_scale", factor).apply()
+    }
+
     /**
      * Fetches aggregate attendance from the database for a specific class section.
      * Calculated as (Attended Count, Total Record Count).

@@ -41,8 +41,17 @@ class MainActivity : AppCompatActivity() {
         enableEdgeToEdge()
 
         setContent {
-            MyApplicationTheme {
-                MainAppHost(viewModel = viewModel)
+            val uiScaleFactor by viewModel.uiScaleFactor.collectAsState()
+            val currentDensity = androidx.compose.ui.platform.LocalDensity.current
+            val customDensity = androidx.compose.ui.unit.Density(
+                density = currentDensity.density * uiScaleFactor,
+                fontScale = currentDensity.fontScale * uiScaleFactor
+            )
+
+            CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides customDensity) {
+                MyApplicationTheme {
+                    MainAppHost(viewModel = viewModel)
+                }
             }
         }
     }
