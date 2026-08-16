@@ -157,12 +157,13 @@ fun MainDashboardScreen(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet {
-                Spacer(modifier = Modifier.height(12.dp))
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                Column(modifier = Modifier.fillMaxHeight().verticalScroll(rememberScrollState())) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
                         text = schoolSetting.schoolName,
@@ -392,7 +393,7 @@ fun MainDashboardScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.height(24.dp))
 
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Default.Logout, contentDescription = "", tint = MaterialTheme.colorScheme.error) },
@@ -407,6 +408,7 @@ fun MainDashboardScreen(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
                 )
                 Spacer(modifier = Modifier.height(12.dp))
+                }
             }
         }
     ) {
